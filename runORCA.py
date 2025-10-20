@@ -31,7 +31,7 @@ def runORCA():
         createORCAinp(f"{name}.xyz", f"{name}.inp") 
         #run ORCA
         os.system(f"orca {name}.inp > {name}.out") 
-        print(f"ORCA calculation for {name} started.") #function to run orca calculations
+        print(f"ORCA calculation for {name}.out is complete") #function to run orca calculations
     #for each molecule, create input file and run orca calculation
 if __name__ == "__main__":
     main() 
