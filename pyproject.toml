@@ -1,0 +1,33 @@
+[project]
+name = "osnades"
+version = "0.1.0"
+description = "OS-NADES Simulator: ORCA + openCOSMO-RS solubility and NADES solvent screening"
+requires-python = ">=3.10"
+dependencies = [
+  "orca-pi>=2.0",
+  "opencosmorspy @ git+https://github.com/TUHH-TVT/openCOSMO-RS_py",
+  "numpy",
+  "scipy",
+  "pandas",
+  "matplotlib",
+  "plotly",
+  "py3Dmol",
+  "rdkit",
+  "streamlit>=1.35",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+osnades = "osnades.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["osnades*"]
+
+[tool.setuptools.package-data]
+osnades = ["orca_shim/*", "data/*.json"]

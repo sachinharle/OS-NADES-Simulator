@@ -1,0 +1,234 @@
+{
+  "_comment": "Species are single molecules/ions (salts are split into their ions, as is usual in COSMO-RS). Solvent systems are molar ratios of species. Melting data are only given where a source is cited.",
+  "species": {
+    "water": {
+      "smiles": "O"
+    },
+    "ethanol": {
+      "smiles": "CCO"
+    },
+    "methanol": {
+      "smiles": "CO"
+    },
+    "acetone": {
+      "smiles": "CC(C)=O"
+    },
+    "DMSO": {
+      "smiles": "CS(C)=O"
+    },
+    "ethyl acetate": {
+      "smiles": "CCOC(C)=O"
+    },
+    "1-octanol": {
+      "smiles": "CCCCCCCCO"
+    },
+    "n-hexane": {
+      "smiles": "CCCCCC"
+    },
+    "glycerol": {
+      "smiles": "OCC(O)CO"
+    },
+    "ethylene glycol": {
+      "smiles": "OCCO"
+    },
+    "1,2-propanediol": {
+      "smiles": "CC(O)CO"
+    },
+    "urea": {
+      "smiles": "NC(N)=O"
+    },
+    "choline": {
+      "smiles": "C[N+](C)(C)CCO"
+    },
+    "chloride": {
+      "smiles": "[Cl-]"
+    },
+    "betaine": {
+      "smiles": "C[N+](C)(C)CC(=O)[O-]"
+    },
+    "lactic acid": {
+      "smiles": "CC(O)C(=O)O"
+    },
+    "levulinic acid": {
+      "smiles": "CC(=O)CCC(=O)O"
+    },
+    "malic acid": {
+      "smiles": "OC(CC(=O)O)C(=O)O"
+    },
+    "citric acid": {
+      "smiles": "OC(=O)CC(O)(CC(=O)O)C(=O)O"
+    },
+    "oxalic acid": {
+      "smiles": "OC(=O)C(=O)O"
+    },
+    "glucose": {
+      "smiles": "OC[C@H]1OC(O)[C@H](O)[C@@H](O)[C@@H]1O"
+    },
+    "menthol": {
+      "smiles": "CC(C)[C@@H]1CC[C@@H](C)C[C@H]1O"
+    },
+    "thymol": {
+      "smiles": "Cc1ccc(C(C)C)c(O)c1"
+    },
+    "decanoic acid": {
+      "smiles": "CCCCCCCCCC(=O)O"
+    },
+    "paracetamol": {
+      "smiles": "CC(=O)Nc1ccc(O)cc1",
+      "dh_fus": 27100.0,
+      "t_fus": 443.6,
+      "notes": "Fusion data from NIST as used in the FACCTs OPI openCOSMO-RS tutorial"
+    },
+    "ibuprofen": {
+      "smiles": "CC(C)Cc1ccc(cc1)C(C)C(=O)O"
+    },
+    "caffeine": {
+      "smiles": "Cn1c(=O)c2c(ncn2C)n(C)c1=O"
+    },
+    "quercetin": {
+      "smiles": "O=c1c(O)c(-c2ccc(O)c(O)c2)oc2cc(O)cc(O)c12"
+    },
+    "curcumin": {
+      "smiles": "COc1cc(/C=C/C(=O)CC(=O)/C=C/c2ccc(O)c(OC)c2)ccc1O"
+    },
+    "gallic acid": {
+      "smiles": "OC(=O)c1cc(O)c(O)c(O)c1"
+    },
+    "rutin": {
+      "smiles": "CC1OC(OCC2OC(Oc3c(-c4ccc(O)c(O)c4)oc4cc(O)cc(O)c4c3=O)C(O)C(O)C2O)C(O)C(O)C1O"
+    }
+  },
+  "solvent_systems": {
+    "Water": {
+      "water": 1
+    },
+    "Ethanol": {
+      "ethanol": 1
+    },
+    "Methanol": {
+      "methanol": 1
+    },
+    "Acetone": {
+      "acetone": 1
+    },
+    "DMSO": {
+      "DMSO": 1
+    },
+    "Ethyl acetate": {
+      "ethyl acetate": 1
+    },
+    "1-Octanol": {
+      "1-octanol": 1
+    },
+    "n-Hexane": {
+      "n-hexane": 1
+    },
+    "Glycerol": {
+      "glycerol": 1
+    },
+    "Ethanol/Water 1:1 (mol)": {
+      "ethanol": 1,
+      "water": 1
+    },
+    "Reline (ChCl:Urea 1:2)": {
+      "choline": 1,
+      "chloride": 1,
+      "urea": 2
+    },
+    "Ethaline (ChCl:EG 1:2)": {
+      "choline": 1,
+      "chloride": 1,
+      "ethylene glycol": 2
+    },
+    "Glyceline (ChCl:Gly 1:2)": {
+      "choline": 1,
+      "chloride": 1,
+      "glycerol": 2
+    },
+    "ChCl:Propanediol 1:2": {
+      "choline": 1,
+      "chloride": 1,
+      "1,2-propanediol": 2
+    },
+    "ChCl:Lactic acid 1:2": {
+      "choline": 1,
+      "chloride": 1,
+      "lactic acid": 2
+    },
+    "ChCl:Levulinic acid 1:2": {
+      "choline": 1,
+      "chloride": 1,
+      "levulinic acid": 2
+    },
+    "ChCl:Malic acid 1:1": {
+      "choline": 1,
+      "chloride": 1,
+      "malic acid": 1
+    },
+    "ChCl:Citric acid 1:1": {
+      "choline": 1,
+      "chloride": 1,
+      "citric acid": 1
+    },
+    "ChCl:Oxalic acid 1:1": {
+      "choline": 1,
+      "chloride": 1,
+      "oxalic acid": 1
+    },
+    "ChCl:Glucose 2:1": {
+      "choline": 2,
+      "chloride": 2,
+      "glucose": 1
+    },
+    "Betaine:Glycerol 1:2": {
+      "betaine": 1,
+      "glycerol": 2
+    },
+    "Betaine:Lactic acid 1:2": {
+      "betaine": 1,
+      "lactic acid": 2
+    },
+    "Menthol:Decanoic acid 1:1": {
+      "menthol": 1,
+      "decanoic acid": 1
+    },
+    "Thymol:Menthol 1:1": {
+      "thymol": 1,
+      "menthol": 1
+    }
+  },
+  "solvent_groups": {
+    "ChCl NADES: polyol / amide HBDs": [
+      "ChCl:Glucose 2:1",
+      "ChCl:Propanediol 1:2",
+      "Ethaline (ChCl:EG 1:2)",
+      "Reline (ChCl:Urea 1:2)",
+      "Glyceline (ChCl:Gly 1:2)"
+    ],
+    "ChCl NADES: carboxylic-acid HBDs": [
+      "ChCl:Levulinic acid 1:2",
+      "ChCl:Malic acid 1:1",
+      "ChCl:Oxalic acid 1:1",
+      "ChCl:Lactic acid 1:2",
+      "ChCl:Citric acid 1:1"
+    ],
+    "Betaine & hydrophobic DES, polar aprotic": [
+      "DMSO",
+      "Betaine:Glycerol 1:2",
+      "Betaine:Lactic acid 1:2",
+      "Acetone",
+      "Menthol:Decanoic acid 1:1",
+      "Thymol:Menthol 1:1"
+    ],
+    "Conventional solvents": [
+      "Ethyl acetate",
+      "Ethanol",
+      "Methanol",
+      "Ethanol/Water 1:1 (mol)",
+      "1-Octanol",
+      "Glycerol",
+      "Water",
+      "n-Hexane"
+    ]
+  }
+}

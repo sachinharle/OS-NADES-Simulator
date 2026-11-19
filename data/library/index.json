@@ -1,0 +1,477 @@
+{
+  "1,2-propanediol": {
+    "charge": 0,
+    "conformers": [
+      "1_2-propanediol/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 07:49",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "C3H8O2",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 76.095,
+    "multiplicity": 1,
+    "name": "1,2-propanediol",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "CC(O)CO",
+    "source": "orca",
+    "t_fus": null
+  },
+  "1-octanol": {
+    "charge": 0,
+    "conformers": [
+      "1-octanol/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 07:50",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "C8H18O",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 130.23100000000002,
+    "multiplicity": 1,
+    "name": "1-octanol",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "CCCCCCCCO",
+    "source": "orca",
+    "t_fus": null
+  },
+  "DMSO": {
+    "charge": 0,
+    "conformers": [
+      "DMSO/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 07:50",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "C2H6OS",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 78.136,
+    "multiplicity": 1,
+    "name": "DMSO",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "CS(C)=O",
+    "source": "orca",
+    "t_fus": null
+  },
+  "acetone": {
+    "charge": 0,
+    "conformers": [
+      "acetone/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 07:50",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "C3H6O",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 58.080000000000005,
+    "multiplicity": 1,
+    "name": "acetone",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "CC(C)=O",
+    "source": "orca",
+    "t_fus": null
+  },
+  "betaine": {
+    "charge": 0,
+    "conformers": [
+      "betaine/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 07:51",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "C5H11NO2",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 117.14799999999998,
+    "multiplicity": 1,
+    "name": "betaine",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "C[N+](C)(C)CC(=O)[O-]",
+    "source": "orca",
+    "t_fus": null
+  },
+  "chloride": {
+    "charge": -1,
+    "conformers": [
+      "chloride/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 07:44",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "Cl-",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 35.453,
+    "multiplicity": 1,
+    "name": "chloride",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "[Cl-]",
+    "source": "orca",
+    "t_fus": null
+  },
+  "choline": {
+    "charge": 1,
+    "conformers": [
+      "choline/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 07:45",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "C5H14NO+",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 104.17299999999999,
+    "multiplicity": 1,
+    "name": "choline",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "C[N+](C)(C)CCO",
+    "source": "orca",
+    "t_fus": null
+  },
+  "citric acid": {
+    "charge": 0,
+    "conformers": [
+      "citric_acid/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 07:52",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "C6H8O7",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 192.123,
+    "multiplicity": 1,
+    "name": "citric acid",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "O=C(O)CC(O)(CC(=O)O)C(=O)O",
+    "source": "orca",
+    "t_fus": null
+  },
+  "decanoic acid": {
+    "charge": 0,
+    "conformers": [
+      "decanoic_acid/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 07:53",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "C10H20O2",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 172.268,
+    "multiplicity": 1,
+    "name": "decanoic acid",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "CCCCCCCCCC(=O)O",
+    "source": "orca",
+    "t_fus": null
+  },
+  "ethanol": {
+    "charge": 0,
+    "conformers": [
+      "ethanol/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 07:45",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "C2H6O",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 46.069,
+    "multiplicity": 1,
+    "name": "ethanol",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "CCO",
+    "source": "orca",
+    "t_fus": null
+  },
+  "ethyl acetate": {
+    "charge": 0,
+    "conformers": [
+      "ethyl_acetate/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 07:54",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "C4H8O2",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 88.106,
+    "multiplicity": 1,
+    "name": "ethyl acetate",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "CCOC(C)=O",
+    "source": "orca",
+    "t_fus": null
+  },
+  "ethylene glycol": {
+    "charge": 0,
+    "conformers": [
+      "ethylene_glycol/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 07:54",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "C2H6O2",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 62.068000000000005,
+    "multiplicity": 1,
+    "name": "ethylene glycol",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "OCCO",
+    "source": "orca",
+    "t_fus": null
+  },
+  "glucose": {
+    "charge": 0,
+    "conformers": [
+      "glucose/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 07:56",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "C6H12O6",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 180.156,
+    "multiplicity": 1,
+    "name": "glucose",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "OC[C@H]1OC(O)[C@H](O)[C@@H](O)[C@@H]1O",
+    "source": "orca",
+    "t_fus": null
+  },
+  "glycerol": {
+    "charge": 0,
+    "conformers": [
+      "glycerol/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 07:45",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "C3H8O3",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 92.09400000000001,
+    "multiplicity": 1,
+    "name": "glycerol",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "OCC(O)CO",
+    "source": "orca",
+    "t_fus": null
+  },
+  "lactic acid": {
+    "charge": 0,
+    "conformers": [
+      "lactic_acid/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 07:56",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "C3H6O3",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 90.07799999999999,
+    "multiplicity": 1,
+    "name": "lactic acid",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "CC(O)C(=O)O",
+    "source": "orca",
+    "t_fus": null
+  },
+  "levulinic acid": {
+    "charge": 0,
+    "conformers": [
+      "levulinic_acid/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 07:57",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "C5H8O3",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 116.11599999999999,
+    "multiplicity": 1,
+    "name": "levulinic acid",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "CC(=O)CCC(=O)O",
+    "source": "orca",
+    "t_fus": null
+  },
+  "malic acid": {
+    "charge": 0,
+    "conformers": [
+      "malic_acid/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 07:57",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "C4H6O5",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 134.087,
+    "multiplicity": 1,
+    "name": "malic acid",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "O=C(O)CC(O)C(=O)O",
+    "source": "orca",
+    "t_fus": null
+  },
+  "menthol": {
+    "charge": 0,
+    "conformers": [
+      "menthol/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 07:59",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "C10H20O",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 156.269,
+    "multiplicity": 1,
+    "name": "menthol",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "CC(C)[C@@H]1CC[C@@H](C)C[C@H]1O",
+    "source": "orca",
+    "t_fus": null
+  },
+  "methanol": {
+    "charge": 0,
+    "conformers": [
+      "methanol/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 07:59",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "CH4O",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 32.042,
+    "multiplicity": 1,
+    "name": "methanol",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "CO",
+    "source": "orca",
+    "t_fus": null
+  },
+  "n-hexane": {
+    "charge": 0,
+    "conformers": [
+      "n-hexane/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 08:00",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "C6H14",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 86.178,
+    "multiplicity": 1,
+    "name": "n-hexane",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "CCCCCC",
+    "source": "orca",
+    "t_fus": null
+  },
+  "oxalic acid": {
+    "charge": 0,
+    "conformers": [
+      "oxalic_acid/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 08:00",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "C2H2O4",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 90.03399999999999,
+    "multiplicity": 1,
+    "name": "oxalic acid",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "O=C(O)C(=O)O",
+    "source": "orca",
+    "t_fus": null
+  },
+  "paracetamol": {
+    "charge": 0,
+    "conformers": [
+      "paracetamol/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 07:44",
+    "dcp_fus": null,
+    "dh_fus": 27100.0,
+    "formula": "C8H9NO2",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 151.165,
+    "multiplicity": 1,
+    "name": "paracetamol",
+    "notes": "Fusion data from NIST as used in the FACCTs OPI openCOSMO-RS tutorial",
+    "optimizer": "xtb",
+    "smiles": "CC(=O)Nc1ccc(O)cc1",
+    "source": "orca",
+    "t_fus": 443.6
+  },
+  "thymol": {
+    "charge": 0,
+    "conformers": [
+      "thymol/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 08:01",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "C10H14O",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 150.221,
+    "multiplicity": 1,
+    "name": "thymol",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "Cc1ccc(C(C)C)c(O)c1",
+    "source": "orca",
+    "t_fus": null
+  },
+  "urea": {
+    "charge": 0,
+    "conformers": [
+      "urea/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 07:45",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "CH4N2O",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 60.056,
+    "multiplicity": 1,
+    "name": "urea",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "NC(N)=O",
+    "source": "orca",
+    "t_fus": null
+  },
+  "water": {
+    "charge": 0,
+    "conformers": [
+      "water/conf0.orcacosmo"
+    ],
+    "created": "2026-11-19 07:46",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "H2O",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 18.015,
+    "multiplicity": 1,
+    "name": "water",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "O",
+    "source": "orca",
+    "t_fus": null
+  }
+}

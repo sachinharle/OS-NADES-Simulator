@@ -1,0 +1,19 @@
+# Python
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+
+# Local settings (machine-specific paths)
+data/osnades.toml
+.claude/
+
+# ORCA scratch folders (hundreds of MB of .gbw/.densities); the library keeps the .orcacosmo results
+data/jobs/
+data/*.log
+data/library/index.tmp
+
+# Tutorial run outputs (regenerate with tutorial/run_tutorial.py); fixtures live in tests/fixtures
+tutorial/opencosmors/
+
+.DS_Store

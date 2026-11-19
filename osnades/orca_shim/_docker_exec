@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Shim that makes a Linux x86-64 ORCA build look like a local binary.
+# OPI calls <shim_dir>/orca, <shim_dir>/orca_2json, ... ; each is a symlink to this file.
+set -euo pipefail
+BIN="$(basename "$0")"
+: "${OSNADES_ORCA_HOME:?OSNADES_ORCA_HOME must point to the Linux ORCA directory}"
+IMAGE="${OSNADES_DOCKER_IMAGE:-osnades/orca-runtime:latest}"
+exec docker run --rm -i --pull never --platform linux/amd64 \
+  --user "$(id -u):$(id -g)" \
+  -v "$OSNADES_ORCA_HOME:$OSNADES_ORCA_HOME:ro" \
+  -v "$PWD:$PWD" -w "$PWD" \
+  -e "PATH=$OSNADES_ORCA_HOME:/usr/bin:/bin" \
+  -e "LD_LIBRARY_PATH=$OSNADES_ORCA_HOME:/usr/lib/x86_64-linux-gnu/openmpi/lib" \
+  "$IMAGE" "$OSNADES_ORCA_HOME/$BIN" "$@"
