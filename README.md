@@ -117,8 +117,18 @@ values come from `fsolve` applied to `|f(x)|`, so they are not converged roots.
 
 `data/library/` holds the σ-surfaces for all 24 preset solvent systems plus paracetamol (BP86/def2-TZVPD,
 GFN2-xTB geometries). With them, solubility screening works out of the box, even without ORCA. You
-only need ORCA to add new compounds. `createORCAinp.py` is the original stand-alone helper for writing
-ORCA input files.
+only need ORCA to add new compounds.
+
+## Stand-alone ORCA scripts
+
+The original batch scripts sit in the repository root and work independently of the `osnades` package:
+
+```bash
+python runORCA.py input.csv   # each "name","SMILES" row: smiles2xyz.py → createORCAinp.py → orca
+```
+
+`smiles2xyz.py` builds a UFF-optimised RDKit geometry. `createORCAinp.py` writes a B3LYP/def2-TZVP
+single-point input. `input.csv` lists quercetin, glycerol and choline chloride.
 
 ## Layout
 

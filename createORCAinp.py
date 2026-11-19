@@ -1,86 +1,64 @@
-#my main code file for creating ORCA input files
 import os
-def create_orca_input(molecule, method, basis_set, charge=0, multiplicity=1, job_type='opt'):
-    """
-    Create an ORCA input file for a given molecule and computational parameters.
 
-    Parameters:
-    molecule (str): The molecular structure in XYZ format.
-    method (str): The computational method (e.g., 'B3LYP').
-    basis_set (str): The basis set to be used (e.g., '6-31G*').
-    charge (int): The total charge of the molecule.
-    multiplicity (int): The spin multiplicity of the molecule.
-    job_type (str): The type of job to perform (e.g., 'opt', 'freq').
+def main():    # Example usage
+    xyz_file = 'molecule.xyz'  # Input .xyz file
+    output_inp_file = 'molecule.inp'  # Output .inp file
+    charge = 0  # Overall charge of the molecule
+    multiplicity = 1  # Spin multiplicity of the molecule
 
-    Returns:
-    str: The content of the ORCA input file.
+    createORCAinp(xyz_file, output_inp_file, charge, multiplicity)
+
+def createORCAinp(xyz_file, output_inp_file, charge=0, multiplicity=1):
     """
-    input_content = f"""! {method} {basis_set} {job_type}
-%pal nprocs 4 end
-* xyz {charge} {multiplicity}
-{molecule}
-*
+    Reads an .xyz file and generates a basic ORCA input file (.inp).
+
+    Args:
+        xyz_file (str): Path to the input .xyz file.
+        output_inp_file (str): Path for the output .inp file.
+        charge (int): The overall charge of the molecule.
+        multiplicity (int): The spin multiplicity of the molecule.
+    """
+    try:
+        with open(xyz_file, 'r') as f:
+            lines = f.readlines()
+
+        # The first two lines of an .xyz file are not coordinates
+        # Line 1: Number of atoms
+        # Line 2: Comment line
+        coords_lines = lines[2:]
+        
+        # Join the coordinate lines to be inserted into the ORCA template
+        coords_block = "".join(coords_lines)
+        
+        # Define the ORCA input file template
+        # You can customize this to change the functional, basis set, etc.
+        orca_template = f"""
+# Basic Single-Point Energy Calculation
+# Functional: B3LYP
+# Basis Set: def2-TZVP
+! B3LYP def2-TZVP SP
+
+# Specify computational resources
+%maxcore 2000
+%pal
+  nprocs 14
+end
+
+# Molecular geometry block
+*xyz {charge} {multiplicity}
+{coords_block}*
 """
-    return input_content
-def save_orca_input(file_name, input_content):
-    """
-    Save the ORCA input content to a file.
+        
+        # Write the complete input file
+        with open(output_inp_file, 'w') as out_f:
+            out_f.write(orca_template)
 
-    Parameters:
-    file_name (str): The name of the file to save the input content.
-    input_content (str): The content of the ORCA input file.
-    """
-    with open(file_name, 'w') as file:
-        file.write(input_content)
-# Example usage
+        print(f"ORCA input file '{output_inp_file}' created successfully.")
+    
+    except FileNotFoundError:
+        print(f"Error: The file '{xyz_file}' was not found.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
 if __name__ == "__main__":
-    molecule_xyz = """O 0.000000 0.000000 0.000000
-H 0.000000 0.757000 0.586000
-H 0.000000 -0.757000 0.586000"""
-    method = "B3LYP"
-    basis_set = "6-31G*"
-    input_content = create_orca_input(molecule_xyz, method, basis_set)
-    save_orca_input("water_opt.inp", input_content)
-#my main code file for creating ORCA input files
-import os
-def create_orca_input(molecule, method, basis_set, charge=0, multiplicity=1, job_type='opt'):
-    """
-    Create an ORCA input file for a given molecule and computational parameters.
-
-    Parameters:
-    molecule (str): The molecular structure in XYZ format.
-    method (str): The computational method (e.g., 'B3LYP').
-    basis_set (str): The basis set to be used (e.g., '6-31G*').
-    charge (int): The total charge of the molecule.
-    multiplicity (int): The spin multiplicity of the molecule.
-    job_type (str): The type of job to perform (e.g., 'opt', 'freq').
-
-    Returns:
-    str: The content of the ORCA input file.
-    """
-    input_content = f"""! {method} {basis_set} {job_type}
-%pal nprocs 4 end
-* xyz {charge} {multiplicity}
-{molecule}
-*
-"""
-    return input_content
-def save_orca_input(file_name, input_content):
-    """
-    Save the ORCA input content to a file.
-
-    Parameters:
-    file_name (str): The name of the file to save the input content.
-    input_content (str): The content of the ORCA input file.
-    """
-    with open(file_name, 'w') as file:
-        file.write(input_content)
-# Example usage
-if __name__ == "__main__":
-    molecule_xyz = """O 0.000000 0.000000 0.000000
-H 0.000000 0.757000 0.586000
-H 0.000000 -0.757000 0.586000"""
-    method = "B3LYP"
-    basis_set = "6-31G*"
-    input_content = create_orca_input(molecule_xyz, method, basis_set)
-    save_orca_input("water_opt.inp", input_content) 
+    main()
