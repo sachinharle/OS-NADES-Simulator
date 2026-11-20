@@ -265,3 +265,23 @@ def test_solvent_phase_diagram(engine):
     assert [c.name for c in comps] == ["water", "ethanol"] and np.allclose(zc, [0.5, 0.5])
     with pytest.raises(ValueError):
         D.solvent_phase_diagram(engine, [w, D.DesignComponent("ethanol", {"ethanol": 1.0})], [0.5, 0.5])
+
+
+def test_find_liquid(engine):
+    """Liquid search: feasible when ethanol may lower the melting point, infeasible (with a consistent
+    melting point and a suggested T_min) when the bounds force a water-rich solvent."""
+    from osnades import designer as D
+
+    def comps(eth_hi):
+        return [D.DesignComponent("water", {"water": 1.0}, 0.0, 1.0, 6009.5, 273.15),
+                D.DesignComponent("ethanol", {"ethanol": 1.0}, 0.0, eth_hi, 4931.0, 159.0)]
+
+    des = D.Designer(engine, "paracetamol", comps(1.0), 27100.0, 443.6)
+    ls = des.find_liquid([250.0, 270.0], step=0.25, top_n=1, local_rounds=0)
+    assert ls.feasible and ls.result is not None and bool(ls.result.best["liquid_all_T"].iloc[0])
+    des = D.Designer(engine, "paracetamol", comps(0.05), 27100.0, 443.6)
+    ls = des.find_liquid([250.0, 270.0], step=0.25, top_n=1, local_rounds=0)
+    assert not ls.feasible and ls.result is None
+    assert ls.z[1] == pytest.approx(0.05, abs=0.005) and 250.0 < ls.T_melt < 273.15
+    assert np.min(des.margins_T(ls.z[None, :], ls.T_melt + 0.5)) > 0 > np.min(des.margins_T(ls.z[None, :], ls.T_melt - 0.5))
+    assert ls.suggested_T_min() >= ls.T_melt - 273.15 and "ethanol (max 0.05)" in ls.advice()[2]

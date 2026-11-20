@@ -263,6 +263,16 @@ def cmd_design(a):
     des = D.Designer(Engine(lib, a.parameterization), a.solute, comps, dh, tm, sp.dcp_fus or 0.0)
     res = des.run(temps, step=a.step, objective=a.objective, require_liquid=not a.allow_solid, top_n=a.top,
                   local_rounds=a.rounds, progress=lambda f, m: print(f"  [{100 * f:5.1f}%] {m}", flush=True))
+    if not a.allow_solid and not a.no_liquid_search and len(res.best) and not res.best["liquid_all_T"].iloc[0]:
+        print("No fully liquid composition on the grid – searching for one…")
+        ls = des.find_liquid(temps, step=a.step, objective=a.objective, top_n=a.top, local_rounds=a.rounds)
+        print(f"  lowest-melting composition: {ls.label}, melts at {ls.melt_text()}")
+        if ls.feasible:
+            print(f"  {len(ls.liquid_points)} compositions are liquid at {a.tmin:g} °C – optimisation re-run with them")
+            res = ls.result
+        else:
+            for m in ls.advice():
+                print("  " + m)
     for n in res.notes:
         print("note:", n)
     cols = ["rank", "name", "liquid_all_T"] + [c for c in res.best if c.startswith("x@") or c.startswith("g/kg@")]
@@ -490,6 +500,8 @@ def main(argv=None):
                    help="do not require the solvent to be liquid over the range")
     q.add_argument("--dh-fus", type=float); q.add_argument("--t-fus", type=float)
     q.add_argument("--save-as", help="register the best composition as a solvent")
+    q.add_argument("--no-liquid-search", action="store_true",
+                   help="do not search further when no fully liquid composition is found on the grid")
     q.add_argument("--phase-diagram", action="store_true",
                    help="also compute the solid–liquid diagram of the best solvent (binary or ternary)")
     q.add_argument("--pd-step", type=float, default=0.1, help="composition grid step of the ternary diagram")

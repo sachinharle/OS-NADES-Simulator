@@ -161,6 +161,52 @@ def composition_system(components: list[DesignComponent], z: np.ndarray, name: s
     return SolventSystem(label, comps)
 
 
+@dataclass
+class LiquidSearch:
+    """Outcome of :meth:`Designer.find_liquid`."""
+    z: np.ndarray  # lowest-melting composition found within the bounds
+    T_melt: float  # its melting point (K); NaN = below the checked floor, −inf = cannot crystallise
+    T_min: float  # coldest temperature of the range (K)
+    feasible: bool  # some composition is liquid at T_min
+    liquid_points: np.ndarray
+    limiting: list[str]  # components crystallising from z at T_min
+    at_bound: list[str]  # bounds that z sits on (widening them may lower the melting point)
+    names: list[str] = field(default_factory=list)
+    result: DesignResult | None = None
+
+    @property
+    def label(self) -> str:
+        return " : ".join(n for n, zi in zip(self.names, self.z) if zi > 1e-12) + f" = {ratio_text(self.z[self.z > 1e-12])}"
+
+    def melt_text(self) -> str:
+        if np.isnan(self.T_melt):
+            return "below −100 °C"
+        if np.isinf(self.T_melt):
+            return "— (no fusion data)"
+        return f"{self.T_melt - 273.15:.1f} °C"
+
+    def suggested_T_min(self) -> int | None:
+        """Lowest whole °C at which the lowest-melting composition is liquid (with 1 K margin)."""
+        return int(math.ceil(self.T_melt - 273.15 + 1.0)) if np.isfinite(self.T_melt) else None
+
+    def advice(self) -> list[str]:
+        if self.feasible:
+            return []
+        out = [f"No composition within the bounds is liquid at {self.T_min - 273.15:.1f} °C. The lowest-melting one "
+               f"is {self.label}, which melts at {self.melt_text()}"
+               + (f" ({', '.join(self.limiting[:-1]) + ' and ' + self.limiting[-1] if len(self.limiting) > 1 else self.limiting[0]}"
+                  f" {'crystallise' if len(self.limiting) > 1 else 'crystallises'} "
+                  f"at {self.T_min - 273.15:.1f} °C)." if self.limiting else ".")]
+        t = self.suggested_T_min()
+        if t is not None:
+            out.append(f"Start the temperature range at {t} °C or higher.")
+        if self.at_bound:
+            out.append("It sits on the bound(s) " + ", ".join(self.at_bound) + ": widening them may lower the "
+                       "melting point.")
+        out.append("Or add a component that lowers the melting point (another HBD, or water).")
+        return out
+
+
 class Designer:
     def __init__(self, engine: Engine, solute: str, components: list[DesignComponent],
                  dh_fus: float, t_fus: float, dcp_fus: float = 0.0):
@@ -276,6 +322,117 @@ class Designer:
                                     for k, j in enumerate(margins.argmin(axis=1))])
         return out
 
+    def margins_T(self, Z: np.ndarray, T: float) -> np.ndarray:
+        """Liquidity margin (ideal-solid limit − ln a_i) of every component, shape (n, n_components);
+        > 0 = that component stays dissolved at T, +inf where it is absent or has no fusion data."""
+        Z = np.atleast_2d(Z)
+        nZ, nC = len(Z), len(self.components)
+        Xs = self.species_x(Z)
+        pure = [self.nu[i] / self.nu[i].sum() for i in range(nC)]
+        lg = self._lng(np.vstack([np.hstack([np.zeros((nZ, 1)), Xs]),
+                                  np.hstack([np.zeros((nC, 1)), np.array(pure)])]), T)[:, 1:]
+        lg_mix, lg_pc = lg[:nZ], lg[nZ:]
+        out = np.full((nZ, nC), np.inf)
+        for i, c in enumerate(self.components):
+            if not c.has_fusion:
+                continue
+            nu = self.nu[i]
+            m = nu > 0
+            with np.errstate(divide="ignore", invalid="ignore"):
+                lna = np.sum(nu[m] * (np.log(Xs[:, m]) + lg_mix[:, m] - np.log(pure[i][m]) - lg_pc[i, m]), axis=1)
+            out[:, i] = np.where(Z[:, i] > 1e-12, ideal_rhs(T, c.dh_fus, c.t_fus, c.dcp_fus) - lna, np.inf)
+        return out
+
+    def melting_point(self, z: np.ndarray, T_floor: float = 173.15) -> float:
+        """Temperature (K) below which composition z starts to crystallise; NaN if below ``T_floor``,
+        −inf if no component can crystallise (no fusion data)."""
+        hs = [c.t_fus for c, zi in zip(self.components, z) if c.has_fusion and zi > 1e-12]
+        if not hs:
+            return float("-inf")
+        g = lambda T: float(np.nanmin(self.margins_T(z[None, :], T)))  # noqa: E731
+        lo, hi = T_floor, max(hs) + 1.0
+        if g(lo) > 0:
+            return float("nan")
+        if g(hi) <= 0:
+            return hi
+        for _ in range(30):
+            mid = 0.5 * (lo + hi)
+            lo, hi = (lo, mid) if g(mid) > 0 else (mid, hi)
+            if hi - lo < 0.02:
+                break
+        return 0.5 * (lo + hi)
+
+    def find_liquid(self, temps, step: float = 0.1, rounds: int = 6, objective: str = "mean_x", top_n: int = 8,
+                    local_rounds: int = 2, progress=None) -> "LiquidSearch":
+        """Search the bounded composition space for compositions that are liquid at the coldest temperature.
+
+        The worst liquidity margin at T_min is maximised (finer lattice, then a pattern search whose step
+        halves each round), which leads to the lowest-melting composition within the bounds. If some
+        compositions are liquid, the optimisation is re-run with them added to the lattice."""
+        temps = np.sort(np.atleast_1d(np.asarray(temps, float)))
+        T_min = float(temps[0])
+        say = progress or (lambda f, m: None)
+        h = step / 2
+        while lattice_size(len(self.components), h) > 4000 and h < step:
+            h *= 1.25
+        say(0.0, f"Liquidity check of the finer grid (step {h:.3g}) at {T_min - 273.15:.1f} °C")
+        Z = lattice(self.components, h)
+        M = self.margins_T(Z, T_min).min(axis=1)
+        seen = {tuple(np.round(z, 6)) for z in Z}
+        for r in range(rounds if len(self.components) > 1 else 0):
+            h /= 2
+            say(0.15 + 0.25 * r / rounds, f"Searching for the lowest-melting composition (step {h:.3g})")
+            new = []
+            for k in np.argsort(-np.nan_to_num(M, nan=-np.inf))[:4]:
+                for y in self._neighbours(Z[k], h):
+                    if tuple(y) not in seen:
+                        seen.add(tuple(y))
+                        new.append(y)
+            if not new:
+                continue
+            Zn = np.array(new)
+            Z, M = np.vstack([Z, Zn]), np.concatenate([M, self.margins_T(Zn, T_min).min(axis=1)])
+        k = int(np.nanargmax(np.nan_to_num(M, nan=-np.inf)))
+        z = Z[k]
+        say(0.4, "Melting point of the lowest-melting composition")
+        T_m = self.melting_point(z)
+        # the margin is maximised at T_min, not at the melting point: repeat the local search at T_m
+        for _ in range(2):
+            if not np.isfinite(T_m) or len(self.components) < 2:
+                break
+            zs, ms, hh = [z], [float(np.min(self.margins_T(z[None, :], T_m)))], step / 4
+            for _r in range(5):
+                cand = np.array(self._neighbours(zs[int(np.argmax(ms))], hh) or [zs[0]])
+                mc = self.margins_T(cand, T_m).min(axis=1)
+                zs += list(cand)
+                ms += list(mc)
+                hh /= 2
+            z_new = zs[int(np.argmax(ms))]
+            T_new = self.melting_point(z_new)
+            if not (T_new < T_m - 0.05):
+                break
+            z, T_m = z_new, T_new
+            Z, M = np.vstack([Z, z]), np.concatenate([M, self.margins_T(z[None, :], T_min).min(axis=1)])
+        mz = self.margins_T(z[None, :], T_min)[0]
+        lim = [c.name for c, v in zip(self.components, mz) if np.isfinite(v) and v <= 0]
+        tol = 0.005  # the pattern search approaches a bound but need not land on it exactly
+        at_bound = [f"{c.name} ({'max' if zi >= c.hi - tol else 'min'} {c.hi if zi >= c.hi - tol else c.lo:g})"
+                    for c, zi in zip(self.components, z)
+                    if (zi >= c.hi - tol and c.hi < 1) or (zi <= c.lo + tol and c.lo > 0)]
+        ok = M > 0
+        ls = LiquidSearch(z, T_m, T_min, bool(ok.any()), Z[ok], lim, at_bound, [c.name for c in self.components])
+        if ls.feasible:
+            pts = Z[ok][np.argsort(-M[ok])][:400]
+            pr = (lambda f, m: say(0.45 + 0.55 * f, m)) if progress else None
+            res = self.run(temps, step=step, objective=objective, require_liquid=True, top_n=top_n,
+                           local_rounds=local_rounds, progress=pr, extra=pts)
+            res.notes.insert(0, f"Liquid search: {int(ok.sum())} compositions are liquid at {T_min - 273.15:.1f} °C; "
+                                f"the lowest-melting one ({ls.label}) melts at {ls.melt_text()}. They were added "
+                                "to the optimisation.")
+            ls.result = res
+        say(1.0, "done")
+        return ls
+
     def score(self, xs: np.ndarray, gkg: np.ndarray, objective: str) -> np.ndarray:
         """xs, gkg: shape (n_points, n_T) with temperatures ascending."""
         with np.errstate(divide="ignore", invalid="ignore"):
@@ -315,11 +472,14 @@ class Designer:
         return out
 
     def run(self, temps, step: float = 0.1, objective: str = "mean_x", require_liquid: bool = True,
-            top_n: int = 8, refine: bool = True, local_rounds: int = 2, progress=None) -> DesignResult:
-        """Screen the lattice, then ``local_rounds`` of local search around the best points (step halved
-        each round), then exact solubilities for the ``top_n`` candidates (if ``refine``)."""
+            top_n: int = 8, refine: bool = True, local_rounds: int = 2, progress=None,
+            extra: np.ndarray | None = None) -> DesignResult:
+        """Screen the lattice (plus any ``extra`` compositions), then ``local_rounds`` of local search around
+        the best points (step halved each round), then exact solubilities for the ``top_n`` candidates."""
         temps = np.sort(np.atleast_1d(np.asarray(temps, float)))
         Z = lattice(self.components, step)
+        if extra is not None and len(extra):
+            Z = np.unique(np.round(np.vstack([Z, np.atleast_2d(extra)]), 6), axis=0)
         if len(Z) == 0:
             raise ValueError("No composition satisfies the bounds – widen them or use a finer step")
         notes: list[str] = []

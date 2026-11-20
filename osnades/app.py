@@ -1434,7 +1434,8 @@ def wf_step_optimise(wf: dict, lib: Library) -> None:
 
     st.subheader("Conditions and optimisation")
     a, b = st.columns([2, 1])
-    t_lo, t_hi = a.slider("Temperature range (°C)", -20, 120, wf.get("trange", (15, 45)), key="wf_trange")
+    t_lo, t_hi = a.slider("Temperature range (°C)", -20, 120, key="wf_trange",
+                          **({} if "wf_trange" in st.session_state else {"value": wf.get("trange", (15, 45))}))
     nT = b.number_input("Temperature points", 1, 9, wf.get("nT", 3), key="wf_nT",
                         help="Solubility is evaluated at these temperatures (evenly spaced).")
     temps = np.linspace(t_lo, t_hi, int(nT)) + 273.15 if nT > 1 else np.array([t_lo + 273.15])
@@ -1505,9 +1506,15 @@ def wf_step_results(wf: dict, lib: Library) -> None:
                         "mass fraction (wt%)": (100 * w).round(2),
                         "molar ratio": D.ratio_text(z).split(" : ")})
     st.dataframe(tbl[tbl["mole fraction"] > 0], hide_index=True, use_container_width=False)
+    ls = wf.get("liquid_search")
+    if ls is not None and ls.feasible and ls.result is res:
+        st.success(f"Liquid search: {len(ls.liquid_points)} compositions are liquid at {ls.T_min - 273.15:.1f} °C. "
+                   f"The lowest-melting one, {ls.label}, melts at {ls.melt_text()}. The optimisation was re-run "
+                   "with them, and the best liquid composition is shown.")
     if not best["liquid_all_T"]:
         st.warning("This composition is predicted to partly crystallise in the range (no fully liquid composition "
                    "was found).")
+        wf_liquid_search(wf, lib, res)
     at_bound = [f"{c.name} ({'upper' if zi >= c.hi - 1e-6 else 'lower'} bound {c.hi if zi >= c.hi - 1e-6 else c.lo:g})"
                 for c, zi in zip(comps, z) if (zi >= c.hi - 1e-6 and c.hi < 1) or (zi <= c.lo + 1e-6 and c.lo > 0)]
     if at_bound:
@@ -1515,7 +1522,8 @@ def wf_step_results(wf: dict, lib: Library) -> None:
                    "widen the bound in step 2 if that composition is practical (for salts, a salt-rich optimum is "
                    "usually a COSMO-RS artefact).")
     for n in res.notes:
-        st.info(n)
+        if not n.startswith("Liquid search:"):  # shown above as a success message
+            st.info(n)
 
     tab_t, tab_c, tab_p = st.tabs(["Solubility vs temperature", "Composition map", "Phase diagram"])
     with tab_p:
@@ -1577,6 +1585,57 @@ def wf_step_results(wf: dict, lib: Library) -> None:
                 st.success(f"Saved “{nm}” – available on the Solubility, Temperature curves and NADES pages.")
             except ValueError as exc:
                 st.error(str(exc))
+
+
+def wf_liquid_search(wf: dict, lib: Library, res) -> None:
+    """Look for a fully liquid composition; if none exists, say what to change."""
+    from osnades import designer as D
+
+    ls = wf.get("liquid_search")
+    if ls is None or ls.result is not None or getattr(ls, "_for", None) is not res:
+        st.markdown("The grid may have missed a narrow liquid region near the eutectic. A finer search looks for "
+                    "the lowest-melting composition within your bounds and re-runs the optimisation with every "
+                    f"composition that is liquid at {res.temps[0] - 273.15:.1f} °C.")
+        if st.button("Find a fully liquid composition", type="primary", key="wf_find_liquid"):
+            sp = lib.get(res.solute)
+            bar = st.progress(0.0, text="Starting…")
+            try:
+                des = D.Designer(engine(), res.solute, res.components, sp.dh_fus, sp.t_fus, sp.dcp_fus or 0.0)
+                ls = des.find_liquid(res.temps, step=float(wf.get("grid", 0.1)), objective=res.objective,
+                                     top_n=int(wf.get("top_n", 6)), local_rounds=int(wf.get("rounds", 2)),
+                                     progress=lambda f, m: bar.progress(min(1.0, f), text=m))
+            except Exception as exc:  # noqa: BLE001
+                bar.empty()
+                st.error(f"Search failed: {exc}")
+                return
+            bar.empty()
+            ls._for = res
+            wf["liquid_search"] = ls
+            if ls.feasible:
+                wf["result"] = ls.result
+                wf.pop("phase", None)
+            st.rerun()
+        return
+    # searched, nothing liquid: explain and offer the fixes
+    msg = ls.advice()
+    st.error(msg[0])
+    for m in msg[1:]:
+        st.markdown("- " + m)
+    t_new = ls.suggested_T_min()
+    a, b = st.columns(2)
+    if t_new is not None:
+        t_lo, t_hi = wf.get("trange", (15, 45))
+        t_new = min(t_new, 115)
+        t_hi = min(120, max(t_hi, t_new + 5))
+        if a.button(f"Start the range at {t_new} °C", type="primary", key="wf_raise_T",
+                    help="Goes back to step 4 with the new range; run the optimisation again there."):
+            wf["trange"] = (t_new, t_hi)
+            st.session_state["wf_trange"] = (t_new, t_hi)
+            wf["step"] = 3
+            st.rerun()
+    if b.button("Change components or bounds", key="wf_to_comps"):
+        wf["step"] = 1
+        st.rerun()
 
 
 def wf_phase_diagram(wf: dict, res, z: np.ndarray) -> None:

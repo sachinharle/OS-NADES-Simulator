@@ -34,6 +34,14 @@ SMILES / XYZ ──RDKit 3D──► GFN2-xTB opt (ORCA) ──► ORCA !COSMORS
      whether it stays liquid down to the coldest temperature of the range. Export the diagram as PNG
      (chosen solvent marked), the liquidus data as CSV, and a one-file summary CSV.
 
+     If no composition on the grid stays liquid over the whole range, **Find a fully liquid
+     composition** searches more finely: it looks for the lowest-melting composition within your bounds
+     and re-runs the optimisation with every composition liquid at the coldest temperature (the grid
+     often misses the narrow region near a ternary eutectic). If none can be liquid, it reports the
+     lowest achievable melting point and the bounds it sits on, and offers to start the range just
+     above that temperature or to change the components/bounds. `osnades design` does the same
+     automatically (`--no-liquid-search` to skip).
+
   The same is available as `osnades design` (`--phase-diagram` adds the phase diagram).
 * **Compound library**: add molecules or ions from presets, SMILES, XYZ, or existing `.orcacosmo`
   files. The library supports several conformers per species and shows a 3D viewer, σ-profiles
