@@ -86,8 +86,9 @@
     ],
     "created": "2026-11-19 07:51",
     "dcp_fus": null,
-    "dh_fus": null,
+    "dh_fus": 17980.0,
     "formula": "C5H11NO2",
+    "fusion_source": "doi:10.1021/je500267w \u2013 Wang, Zhang & Wang, J. Chem. Eng. Data 2014, 59, 2511: group-contribution estimate (betaine decomposes on melting, so it cannot be measured directly), reported consistent with their DSC; used by Abranches et al., ChemSusChem 2020 (doi:10.1002/cssc.202001331), whose eutectic data give \u226511.4 kJ/mol \u2013 estimate, verify",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 117.14799999999998,
     "multiplicity": 1,
@@ -96,7 +97,7 @@
     "optimizer": "xtb",
     "smiles": "C[N+](C)(C)CC(=O)[O-]",
     "source": "orca",
-    "t_fus": null
+    "t_fus": 566.2
   },
   "chloride": {
     "charge": -1,

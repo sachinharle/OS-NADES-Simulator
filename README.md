@@ -138,8 +138,9 @@ values come from `fsolve` applied to `|f(x)|`, so they are not converged roots.
   solutes get published values from the automatic lookup (needs internet), or you can enter your own.
   Check the source shown next to the values; published DSC data for the same compound can differ by
   several kJ/mol (thymol: 17.4–22.1 kJ/mol). The shipped library has measured values for every
-  neutral species except betaine (no data; it decomposes before melting) and oxalic acid (Walden
-  estimate; it sublimes and decomposes near its melting point, so no DSC fusion enthalpy exists).
+  neutral species except two estimates: betaine (17.98 kJ/mol, 566.2 K, group contribution, Wang et
+  al. 2014; it decomposes on melting) and oxalic acid (Walden's rule; it sublimes and decomposes near
+  its melting point, so no DSC fusion enthalpy exists).
 * "Citric acid" and "Glucose" as pure solvents are hypothetical sub-cooled liquids (both melt above
   420 K). They show how each HBD interacts with a solute on its own; real extraction media use them
   inside NADES (ChCl:Citric acid, ChCl:Glucose) or with water.
