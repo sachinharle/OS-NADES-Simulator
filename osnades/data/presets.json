@@ -222,6 +222,12 @@
     "Thymol:Menthol 1:1": {
       "thymol": 1,
       "menthol": 1
+    },
+    "Citric acid (sub-cooled liquid)": {
+      "citric acid": 1
+    },
+    "Glucose (sub-cooled liquid)": {
+      "glucose": 1
     }
   },
   "solvent_groups": {
@@ -256,6 +262,10 @@
       "Glycerol",
       "Water",
       "n-Hexane"
+    ],
+    "Pure HBD components (sub-cooled liquids)": [
+      "Citric acid (sub-cooled liquid)",
+      "Glucose (sub-cooled liquid)"
     ]
   },
   "salts": {

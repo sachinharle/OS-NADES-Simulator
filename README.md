@@ -26,7 +26,7 @@ SMILES / XYZ ──RDKit 3D──► GFN2-xTB opt (ORCA) ──► ORCA !COSMORS
   (ChCl NADES with polyol/amide or acid HBDs, betaine/hydrophobic DES, conventional solvents).
   Each panel picks a linear or log scale on its own. The page includes a temperature-gain table
   for picking cooling-crystallisation solvents, plus CSV and PNG export.
-* **NADES**: 24 preset systems.
+* **NADES**: 26 preset systems.
   * ChCl-based (Reline, Ethaline, Glyceline, organic acids, glucose), betaine-based, and
     hydrophobic (menthol/thymol/decanoic acid) systems.
   * A custom HBA:HBD:… builder with an electroneutrality check.
@@ -119,6 +119,9 @@ values come from `fsolve` applied to `|f(x)|`, so they are not converged roots.
   ionisation/pH, and LLE (a warning is shown if several roots exist).
 * ΔH_fus and T_m have a big effect on the result. Only paracetamol ships with a value (NIST, as in
   the tutorial); enter your own for other solutes.
+* "Citric acid" and "Glucose" as pure solvents are hypothetical sub-cooled liquids (both melt above
+  420 K). They show how each HBD interacts with a solute on its own; real extraction media use them
+  inside NADES (ChCl:Citric acid, ChCl:Glucose) or with water.
 * Eutectic diagrams assume pure, immiscible solids (no co-crystals or solid solutions). For neutral
   pairs (e.g. thymol:menthol, predicted eutectic at x_thymol = 0.41, −4.5 °C) results are reasonable.
   For choline chloride, COSMO-RS over-stabilises the split ions, so the eutectic comes out far too
@@ -129,7 +132,7 @@ values come from `fsolve` applied to `|f(x)|`, so they are not converged roots.
 
 ## Precomputed data
 
-`data/library/` holds the σ-surfaces for all 24 preset solvent systems plus paracetamol (BP86/def2-TZVPD,
+`data/library/` holds the σ-surfaces for all 26 preset solvent systems plus paracetamol (BP86/def2-TZVPD,
 GFN2-xTB geometries). With them, solubility screening works out of the box, even without ORCA. You
 only need ORCA to add new compounds.
 
