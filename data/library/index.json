@@ -400,6 +400,25 @@
     "source": "orca",
     "t_fus": null
   },
+  "paraCoumaric_acid": {
+    "charge": 0,
+    "conformers": [
+      "paraCoumaric_acid/conf0.orcacosmo"
+    ],
+    "created": "2026-11-20 13:16",
+    "dcp_fus": null,
+    "dh_fus": null,
+    "formula": "C9H8O3",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 164.15999999999997,
+    "multiplicity": 1,
+    "name": "paraCoumaric_acid",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "O=C(O)/C=C/c1ccc(O)cc1",
+    "source": "orca",
+    "t_fus": null
+  },
   "paracetamol": {
     "charge": 0,
     "conformers": [
