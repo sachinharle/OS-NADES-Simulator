@@ -49,6 +49,7 @@ class Species:
     dh_fus: float | None = None  # J/mol
     t_fus: float | None = None  # K
     dcp_fus: float | None = None  # J/(mol K)
+    fusion_source: str = ""  # where dh_fus / t_fus come from (lookup reference, "user", preset note)
 
     def conformer_paths(self, library_dir: Path) -> list[Path]:
         return [library_dir / c for c in self.conformers]
@@ -240,6 +241,7 @@ class Library:
         n_conformers: int = 1,
         optimizer: str = "xtb",  # xtb | mmff | none
         overwrite: bool = False,
+        lookup_fusion: bool = True,
         log: Log = print,
         **meta,
     ) -> Species:
@@ -287,6 +289,35 @@ class Library:
         if sp.charge != charge:
             sp = self.update(name, charge=charge)
         log(f"{name}: added to library ({len(files)} σ-surface(s))")
+        if lookup_fusion and sp.charge == 0 and not (sp.dh_fus and sp.t_fus):
+            sp = self.lookup_fusion(name, log=log)
+        return sp
+
+    def lookup_fusion(self, name: str, overwrite: bool = False, log: Log = print, timeout: float = 15.0):
+        """Fill in ΔH_fus / T_m of a species from published data (see :mod:`osnades.fusion`).
+        Only empty fields are filled unless ``overwrite``. Network problems are logged, not raised."""
+        from . import fusion
+
+        sp = self.get(name)
+        try:
+            rec = fusion.find(sp.smiles, name, timeout=timeout)
+        except Exception as exc:  # noqa: BLE001
+            log(f"{name}: fusion-data lookup failed ({exc}); enter ΔH_fus and T_m by hand")
+            return sp
+        if rec is None:
+            log(f"{name}: no published fusion data found; enter ΔH_fus and T_m by hand")
+            return sp
+        fields = {}
+        if rec.dh_fus and (overwrite or not sp.dh_fus):
+            fields["dh_fus"] = rec.dh_fus
+        if rec.t_fus and (overwrite or not sp.t_fus):
+            fields["t_fus"] = rec.t_fus
+        if fields:
+            partial = len(fields) == 1 and sp.fusion_source
+            what = "ΔH_fus" if "dh_fus" in fields else "T_m"
+            fields["fusion_source"] = f"{sp.fusion_source}; {what}: {rec.note}" if partial else rec.note
+            sp = self.update(name, **fields)
+            log(f"{name}: fusion data {rec.label}")
         return sp
 
     def ensure(self, name: str, smiles: str, log: Log = print, **kw) -> Species:

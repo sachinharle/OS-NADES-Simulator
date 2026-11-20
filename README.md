@@ -17,6 +17,13 @@ SMILES / XYZ ──RDKit 3D──► GFN2-xTB opt (ORCA) ──► ORCA !COSMORS
 * **Compound library**: add molecules or ions from presets, SMILES, XYZ, or existing `.orcacosmo`
   files. The library supports several conformers per species and shows a 3D viewer, σ-profiles
   and σ-moment descriptors.
+* **Fusion data lookup**: when you add a neutral compound, its measured ΔH_fus and T_m are fetched
+  automatically from [Cheméo](https://www.chemeo.com), which collects NIST WebBook and literature DSC
+  values. The compound is matched by InChIKey, so only the exact molecule is accepted. The source
+  reference (DOI) is stored with the species. If only a melting point is published, ΔH_fus is estimated
+  with Walden's rule (ΔS_fus ≈ 56.5 J/mol/K) and flagged as an estimate. In the library, "Look up
+  published values" lists every value found so you can pick another reference. Values you enter
+  yourself are never overwritten.
 * **Your own solvents**: switch on "Use as a solvent" for any neutral library species, tick
   "Also use it as a solvent" when adding a new molecule, or press "Save as solvent" on a custom
   mixture. These solvents then show up on the Solubility, Temperature curves and NADES pages (group
@@ -88,6 +95,8 @@ osnades add vanillin --smiles "COc1cc(C=O)ccc1O" --dh-fus 22400 --t-fus 355
 osnades bootstrap "Reline (ChCl:Urea 1:2)" Water Ethanol  # compute species for these systems
 osnades import myspecies conf0.orcacosmo conf1.orcacosmo  # reuse σ-surfaces
 osnades list
+osnades fusion paraCoumaric_acid                          # list published ΔH_fus / T_m; --apply stores the suggestion
+osnades fusion --all --apply                              # fill in every neutral species that has no data
 osnades solubility paracetamol -s Water -s Ethanol -s "Reline (ChCl:Urea 1:2)" -T 298.15 318.15
 osnades solubility paracetamol -s "choline:chloride:glycerol=1:1:2" --water 10 --csv out.csv
 osnades curves paracetamol --tmin 0 --tmax 80 -o results/paracetamol_solubility_vs_T   # CSV + grouped PNG
@@ -124,8 +133,11 @@ values come from `fsolve` applied to `|f(x)|`, so they are not converged roots.
   the pure-liquid reference of the solute. This way no unphysical "pure ion" liquid is ever needed.
 * The model assumes an ideal solid phase. It ignores polymorphs, solvates, solute
   ionisation/pH, and LLE (a warning is shown if several roots exist).
-* ΔH_fus and T_m have a big effect on the result. Only paracetamol ships with a value (NIST, as in
-  the tutorial); enter your own for other solutes.
+* ΔH_fus and T_m have a big effect on the result. Paracetamol (NIST, as in the tutorial) and
+  p-coumaric acid (34.3 kJ/mol, 494.3 K, doi:10.1021/acs.jced.6b00361) ship with values. Other
+  solutes get published values from the automatic lookup (needs internet), or you can enter your own.
+  Check the source shown next to the values; published DSC data for the same compound can differ by
+  several kJ/mol.
 * "Citric acid" and "Glucose" as pure solvents are hypothetical sub-cooled liquids (both melt above
   420 K). They show how each HBD interacts with a solute on its own; real extraction media use them
   inside NADES (ChCl:Citric acid, ChCl:Glucose) or with water.

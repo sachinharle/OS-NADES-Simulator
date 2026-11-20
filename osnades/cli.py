@@ -60,8 +60,11 @@ def cmd_add(a):
         meta["dh_fus"] = a.dh_fus
     if a.t_fus is not None:
         meta["t_fus"] = a.t_fus
+    if "dh_fus" in meta or "t_fus" in meta:
+        meta["fusion_source"] = "entered by user" if (a.dh_fus or a.t_fus) else pre.get("notes", "preset")
     lib.compute(a.name, smiles=smiles, xyz=xyz, charge=a.charge, multiplicity=a.mult,
-                n_conformers=a.conformers, optimizer=a.optimizer, overwrite=a.overwrite, **meta)
+                n_conformers=a.conformers, optimizer=a.optimizer, overwrite=a.overwrite,
+                lookup_fusion=not a.no_fusion_lookup, **meta)
     return 0
 
 
@@ -91,8 +94,36 @@ def cmd_list(a):
 def cmd_set(a):
     s, lib = _lib()
     fields = {k: v for k, v in (("dh_fus", a.dh_fus), ("t_fus", a.t_fus), ("dcp_fus", a.dcp_fus)) if v is not None}
+    if a.dh_fus is not None or a.t_fus is not None:
+        fields["fusion_source"] = "entered by user"
     sp = lib.update(a.name, **fields)
     print(f"{sp.name}: dH_fus={sp.dh_fus} J/mol, T_m={sp.t_fus} K, dCp_fus={sp.dcp_fus}")
+    return 0
+
+
+def cmd_fusion(a):
+    """Look up published ΔH_fus / T_m and (with --apply) store the suggested pair."""
+    from . import fusion
+
+    s, lib = _lib()
+    names = [sp.name for sp in lib.all() if sp.charge == 0 and not (sp.dh_fus and sp.t_fus)] if a.all else a.names
+    if not names:
+        print("Nothing to look up (give species names or --all).")
+        return 0
+    for n in names:
+        sp = lib.get(n)
+        recs = fusion.lookup(sp.smiles, n)
+        pick = fusion.best(recs)
+        print(f"== {n}: {len(recs)} published value(s)")
+        for r in recs:
+            print(("  * " if pick and r.source == pick.source and r.url == pick.url else "    ") + r.label)
+        if pick is None:
+            print("  no melting data found – set it with `osnades set`")
+            continue
+        print(f"  suggested: {pick.label}")
+        if a.apply:
+            lib.update(n, dh_fus=pick.dh_fus, t_fus=pick.t_fus, fusion_source=pick.note)
+            print("  saved to library")
     return 0
 
 
@@ -256,6 +287,8 @@ def main(argv=None):
     q.add_argument("--conformers", type=int, default=1)
     q.add_argument("--optimizer", choices=["xtb", "mmff", "none"], default="xtb")
     q.add_argument("--dh-fus", type=float, help="J/mol"); q.add_argument("--t-fus", type=float, help="K")
+    q.add_argument("--no-fusion-lookup", action="store_true",
+                   help="do not fetch published ΔH_fus/T_m for fields left empty")
     q.add_argument("--overwrite", action="store_true"); q.set_defaults(fn=cmd_add)
 
     q = sub.add_parser("import", help="import existing .orcacosmo file(s) (one per conformer)")
@@ -267,6 +300,9 @@ def main(argv=None):
     q = sub.add_parser("set", help="set fusion data of a species")
     q.add_argument("name"); q.add_argument("--dh-fus", type=float); q.add_argument("--t-fus", type=float)
     q.add_argument("--dcp-fus", type=float); q.set_defaults(fn=cmd_set)
+    q = sub.add_parser("fusion", help="look up published fusion data (ΔH_fus, T_m) of species")
+    q.add_argument("names", nargs="*"); q.add_argument("--all", action="store_true", help="all species without data")
+    q.add_argument("--apply", action="store_true", help="store the suggested values"); q.set_defaults(fn=cmd_fusion)
     q = sub.add_parser("remove", help="remove a species"); q.add_argument("name"); q.set_defaults(fn=cmd_remove)
 
     q = sub.add_parser("bootstrap", help="compute preset species for solvent systems (default: all presets)")

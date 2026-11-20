@@ -137,6 +137,74 @@ multi-component solvents.
 
 
 # --------------------------------------------------------------------------- library
+def fusion_caption(sp) -> None:
+    """Show where a species' ΔH_fus / T_m come from (and warn about estimates)."""
+    src = sp.fusion_source or (sp.notes if sp.dh_fus and "usion" in (sp.notes or "") else "")
+    if not (sp.dh_fus or sp.t_fus):
+        return
+    if "Walden" in src:
+        st.warning(f"ΔH_fus of {sp.name} is an estimate (Walden's rule) – replace it with a measured value if you can. "
+                   f"{src}")
+    elif "verify" in src:
+        st.caption(f"⚠️ {src}")
+    elif src:
+        st.caption(src)
+
+
+def fusion_editor(lib: Library, sp) -> None:
+    """Fusion-data form of one species with an online lookup that lists every published value."""
+    name = sp.name
+    with st.form(f"fus_{name}"):
+        st.markdown("**Solid–liquid data** (needed when used as solute)")
+        a, b, c = st.columns(3)
+        dh = a.number_input("ΔH_fus (kJ/mol)", value=float(sp.dh_fus / 1000) if sp.dh_fus else 0.0, min_value=0.0)
+        tm = b.number_input("T_m (K)", value=float(sp.t_fus or 0.0), min_value=0.0)
+        dcp = c.number_input("ΔCp_fus (J/mol/K)", value=float(sp.dcp_fus or 0.0))
+        notes = st.text_input("Notes", value=sp.notes)
+        if st.form_submit_button("Save"):
+            changed = (dh * 1000 or None, tm or None) != (sp.dh_fus, sp.t_fus)
+            lib.update(name, dh_fus=dh * 1000 or None, t_fus=tm or None, dcp_fus=dcp or None, notes=notes,
+                       fusion_source="entered by user" if changed else sp.fusion_source)
+            st.success("Saved")
+            st.rerun()
+    fusion_caption(sp)
+    if sp.charge != 0:
+        return
+    key = f"fus_cands_{name}"
+    if st.button("Look up published values", key=f"fus_lookup_{name}",
+                 help="Searches Cheméo (NIST WebBook + literature DSC data) by InChIKey."):
+        from osnades import fusion
+
+        with st.spinner(f"Searching fusion data for {name}…"):
+            try:
+                st.session_state[key] = fusion.lookup(sp.smiles, name)
+            except Exception as exc:  # noqa: BLE001
+                st.error(f"Lookup failed: {exc}")
+    cands = st.session_state.get(key)
+    if cands is None:
+        return
+    from osnades import fusion
+
+    pick = fusion.best(cands)
+    if pick is None:
+        st.info(f"No published melting data found for {name}. Enter literature or DSC values above.")
+        return
+    opts = [pick] + [r for r in cands if r is not pick and r.t_fus and r.dh_fus] + \
+           [r for r in cands if r is not pick and not (r.t_fus and r.dh_fus)]
+    i = st.selectbox(f"Published values for {name} ({len(cands)} found; first = suggested)", range(len(opts)),
+                     format_func=lambda i: opts[i].label, key=f"fus_pick_{name}")
+    r = opts[i]
+    if not r.dh_fus:
+        r = fusion.FusionRecord(dh_fus=fusion.WALDEN_DS * r.t_fus, t_fus=r.t_fus, source=r.source, compound=r.compound,
+                                url=r.url, doi=r.doi, exact=r.exact, estimated=True)
+        st.caption(f"This reference gives only T_m; ΔH_fus would be estimated as {r.dh_fus / 1000:.1f} kJ/mol (Walden).")
+    if st.button("Use these values", key=f"fus_use_{name}", type="primary"):
+        lib.update(name, dh_fus=r.dh_fus or sp.dh_fus, t_fus=r.t_fus or sp.t_fus, fusion_source=r.note)
+        st.session_state.pop(key, None)
+        st.toast(f"Fusion data of {name} updated")
+        st.rerun()
+
+
 def page_library():
     st.title("Compound library")
     lib = library()
@@ -156,6 +224,19 @@ def page_library():
             )
             st.dataframe(df, hide_index=True, use_container_width=True)
             my_solvents_panel(lib)
+            missing = [s.name for s in all_sp if s.charge == 0 and not (s.dh_fus and s.t_fus)]
+            if missing and st.button(f"Look up missing fusion data ({len(missing)} species)", key="fus_all",
+                                     help="Fetches measured ΔH_fus / T_m for every neutral species that has none."):
+                bar, msgs = st.progress(0.0), []
+                for i, n in enumerate(missing):
+                    bar.progress(i / len(missing), text=n)
+                    lib.lookup_fusion(n, log=msgs.append)
+                bar.empty()
+                st.session_state["fus_all_log"] = msgs
+                st.rerun()
+            if st.session_state.get("fus_all_log"):
+                with st.expander("Fusion-data lookup results", expanded=True):
+                    st.text("\n".join(st.session_state.pop("fus_all_log")))
             name = st.selectbox("Inspect species", [s.name for s in all_sp])
             sp = lib.get(name)
             c1, c2 = st.columns([1, 1])
@@ -175,17 +256,7 @@ def page_library():
                               ", ".join(f"{v:.4g}" for v in d["hb_donor_moments"]),
                               ", ".join(f"{v:.4g}" for v in d["hb_acceptor_moments"])],
                 }).set_index("property"))
-                with st.form(f"fus_{name}"):
-                    st.markdown("**Solid–liquid data** (needed when used as solute)")
-                    a, b, c = st.columns(3)
-                    dh = a.number_input("ΔH_fus (kJ/mol)", value=float(sp.dh_fus / 1000) if sp.dh_fus else 0.0, min_value=0.0)
-                    tm = b.number_input("T_m (K)", value=float(sp.t_fus or 0.0), min_value=0.0)
-                    dcp = c.number_input("ΔCp_fus (J/mol/K)", value=float(sp.dcp_fus or 0.0))
-                    notes = st.text_input("Notes / source", value=sp.notes)
-                    if st.form_submit_button("Save"):
-                        lib.update(name, dh_fus=dh * 1000 or None, t_fus=tm or None, dcp_fus=dcp or None, notes=notes)
-                        st.success("Saved")
-                        st.rerun()
+                fusion_editor(lib, sp)
                 preset_pure = next((k for k, v in presets()["solvent_systems"].items() if v == {name: 1}), None)
                 if preset_pure:
                     st.caption(f"Already available as the preset solvent “{preset_pure}”.")
@@ -251,6 +322,22 @@ def page_library():
                     st.error("Multi-fragment SMILES: add each ion separately (e.g. choline and chloride).")
             except Exception as exc:  # noqa: BLE001
                 st.error(str(exc))
+        st.markdown("**Fusion data** (needed when the compound is used as a solute)")
+        f1, f2, f3 = st.columns([1, 1, 2])
+        dh_in = f1.number_input("ΔH_fus (kJ/mol)", value=float(meta["dh_fus"] / 1000) if meta.get("dh_fus") else None,
+                                min_value=0.1, placeholder="look up", key=f"add_dh_{name}")
+        tm_in = f2.number_input("T_m (K)", value=float(meta["t_fus"]) if meta.get("t_fus") else None, min_value=1.0,
+                                placeholder="look up", key=f"add_tm_{name}")
+        auto_fus = f3.checkbox("Look up published values for empty fields", value=True, key="add_lookup",
+                               help="After the ORCA job, measured ΔH_fus and T_m are fetched from Cheméo (NIST WebBook "
+                                    "and literature DSC data, matched by InChIKey). If only T_m is published, ΔH_fus "
+                                    "is estimated with Walden's rule and flagged as an estimate.")
+        if dh_in:
+            meta["dh_fus"] = dh_in * 1000
+        if tm_in:
+            meta["t_fus"] = tm_in
+        if (dh_in or tm_in) and not meta.get("fusion_source"):
+            meta["fusion_source"] = "entered by user" if mode != "Preset" else meta.get("notes", "preset")
         overwrite = st.checkbox("Recompute if this species already exists (replaces its σ-surfaces)", key="add_ow")
         as_solvent = st.checkbox("Also use it as a solvent", key="add_solv",
                                  help="Listed with the solvent systems once the ORCA job has finished.")
@@ -269,7 +356,8 @@ def page_library():
                     st.warning("Charged species cannot be a solvent on their own – not added as solvent.")
                     as_solvent = False
                 queue_compute(name, smiles=smiles, xyz=xyz, charge=charge, multiplicity=mult,
-                              n_conformers=int(nconf), optimizer=optimizer, overwrite=overwrite, **meta)
+                              n_conformers=int(nconf), optimizer=optimizer, overwrite=overwrite,
+                              lookup_fusion=auto_fus, **meta)
                 if as_solvent:
                     try:
                         lib.add_solvent(name, overwrite=True)
@@ -284,6 +372,8 @@ def page_library():
         name = st.text_input("Species name", key="imp_name")
         smi = st.text_input("SMILES (optional, for molar mass)", key="imp_smi")
         files = st.file_uploader("orcacosmo file(s)", accept_multiple_files=True)
+        imp_fus = st.checkbox("Look up published fusion data (needs the SMILES or a well-known name)", value=True,
+                              key="imp_lookup")
         if st.button("Import", disabled=not (name and files)):
             with tempfile.TemporaryDirectory() as td:
                 paths = []
@@ -294,6 +384,11 @@ def page_library():
                 try:
                     sp = lib.import_orcacosmo(name, paths, smiles=smi or None)
                     st.success(f"Imported {sp.name} ({len(sp.conformers)} conformer(s), charge {sp.charge})")
+                    if imp_fus and sp.charge == 0:
+                        with st.spinner("Looking up fusion data…"):
+                            msgs = []
+                            sp = lib.lookup_fusion(sp.name, log=msgs.append)
+                        st.info(" ".join(msgs) or "No fusion data found.")
                 except Exception as exc:  # noqa: BLE001
                     st.error(str(exc))
 
@@ -364,9 +459,15 @@ def page_solubility():
         solute = st.selectbox("Solute", [s.name for s in all_sp],
                               index=next((i for i, s in enumerate(all_sp) if s.dh_fus), 0))
         sp = lib.get(solute)
-        dh = st.number_input("ΔH_fus (kJ/mol)", value=float(sp.dh_fus / 1000) if sp.dh_fus else 25.0, min_value=0.1)
-        tm = st.number_input("T_m (K)", value=float(sp.t_fus or 400.0), min_value=1.0)
-        dcp = st.number_input("ΔCp_fus (J/mol/K)", value=float(sp.dcp_fus or 0.0))
+        dh = st.number_input("ΔH_fus (kJ/mol)", value=float(sp.dh_fus / 1000) if sp.dh_fus else 25.0, min_value=0.1,
+                             key=f"sol_dh_{solute}")
+        tm = st.number_input("T_m (K)", value=float(sp.t_fus or 400.0), min_value=1.0, key=f"sol_tm_{solute}")
+        dcp = st.number_input("ΔCp_fus (J/mol/K)", value=float(sp.dcp_fus or 0.0), key=f"sol_dcp_{solute}")
+        if sp.dh_fus and sp.t_fus:
+            fusion_caption(sp)
+        else:
+            st.caption(f"No fusion data stored for {solute}; the values above are placeholders – use "
+                       "“Look up published values” in the Compound library or enter literature values.")
         method = st.radio("Method", ["iterative", "infinite_dilution"], horizontal=True,
                           help="iterative: γ at the saturated composition; infinite_dilution: γ∞ (tutorial's non-iterative)")
         water = st.slider("Add water to every solvent (wt%)", 0.0, 50.0, 0.0, 1.0)
@@ -467,13 +568,14 @@ def page_curves():
         tm = b.number_input("T_m (K)", value=float(sp.t_fus) if sp.t_fus else None, min_value=1.0,
                             key=f"cv_tm_{solute}", placeholder="required")
         dcp = c.number_input("ΔCp_fus (J/mol/K)", value=float(sp.dcp_fus or 0.0), key=f"cv_dcp_{solute}")
+        fusion_caption(sp)
         if dh is None or tm is None:
             st.warning(f"Enter the melting enthalpy and melting point of {solute} (literature or DSC) to "
                        "compute its solubility curves.")
             return
         if (sp.dh_fus, sp.t_fus, sp.dcp_fus or 0.0) != (dh * 1000, tm, dcp) and st.button(
                 "Save fusion data to library", key="cv_save"):
-            lib.update(solute, dh_fus=dh * 1000, t_fus=tm, dcp_fus=dcp or None)
+            lib.update(solute, dh_fus=dh * 1000, t_fus=tm, dcp_fus=dcp or None, fusion_source="entered by user")
             st.toast(f"Saved fusion data for {solute}")
             st.rerun()
     with c2:
@@ -560,6 +662,8 @@ def nades_solute_panel(sysm: SolventSystem, T: float, lib: Library) -> None:
     dcp = c4.number_input("ΔCp_fus (J/mol/K)", value=float(sp.dcp_fus or 0.0), key=f"nd_dcp_{solute}")
     if not sp.dh_fus:
         st.caption(f"No fusion data stored for {solute}; the defaults above are placeholders – enter literature values.")
+    else:
+        fusion_caption(sp)
 
     x_id = float(np.exp(ideal_rhs(T, dh * 1000, tm, dcp)))
     mw = sp.molar_mass or 0.0

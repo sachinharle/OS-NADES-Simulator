@@ -407,8 +407,9 @@
     ],
     "created": "2026-11-20 13:16",
     "dcp_fus": null,
-    "dh_fus": null,
+    "dh_fus": 34300.0,
     "formula": "C9H8O3",
+    "fusion_source": "Fusion data via Chem\u00e9o: Measurement and Correlation of the Solubility of p-Coumaric Acid in Nine Pure and Water + Ethanol Mixed Solvents at Temperatures from 293.15 to 333.15 K (doi:10.1021/acs.jced.6b00361); value belongs to the Chem\u00e9o entry 'p-Coumaric acid (CAS 7400-08-0)' (stereo not matched) \u2013 verify",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 164.15999999999997,
     "multiplicity": 1,
@@ -417,7 +418,7 @@
     "optimizer": "xtb",
     "smiles": "O=C(O)/C=C/c1ccc(O)cc1",
     "source": "orca",
-    "t_fus": null
+    "t_fus": 494.3
   },
   "paracetamol": {
     "charge": 0,

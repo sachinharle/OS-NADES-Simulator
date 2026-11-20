@@ -153,3 +153,30 @@ def test_user_solvents(tmp_path):
         lib.add_solvent("My Alcohol")
     lib.remove("my alcohol")  # deleting a species drops its pure-solvent entry
     assert not lib.is_solvent("my alcohol") and "EtOH:H2O 3:1" in lib.user_solvents()
+
+
+def test_fusion_page_parsing_and_choice():
+    from osnades import fusion
+
+    def row(prop, val, unit, src, ref="", calc=False):
+        mark = '<span class="marker" title="Calculated Property"></span>' if calc else ""
+        return (f'<tr><td><span>{prop}</span></td><td class="r">{val}</td><td class="c">{unit}</td>'
+                f'<td class="r"><a class="src-name" href="#ref-{ref}" title="{src}">{src}</a> {mark}</td></tr>')
+
+    page = "<h1>Chemical Properties of Testol (CAS 1-2-3)</h1><table>" + "".join([
+        row("Δ<sub>fus</sub>H°", "29.24", "kJ/mol", "Joback", "chemeo-joback", calc=True),
+        row("Δ<sub>fus</sub>H°", "[27.42; 34.30]", "kJ/mol", ""),
+        row("Δ<sub>fus</sub>H°", "27.42", "kJ/mol", "Paper A", "doi_10.1016_j.jct.2013.02.013"),
+        row("T<sub>fus</sub>", "492.35", "K", "Paper A", "doi_10.1016_j.jct.2013.02.013"),
+        row("T<sub>fus</sub>", "489.00 ± 5.00", "K", "NIST", "nist-webbook"),
+        row("T<sub>fus</sub>", "213.15", "K", "Some dataset", "ds"),
+    ]) + "</table>"
+    recs = fusion.parse_page(page, "https://x/cid/1", exact=True)
+    assert {r.source for r in recs} == {"Paper A", "NIST", "Some dataset"}  # calculated + range rows dropped
+    a = next(r for r in recs if r.source == "Paper A")
+    assert a.dh_fus == 27420 and a.t_fus == 492.35 and a.doi == "10.1016/j.jct.2013.02.013"
+    assert a.compound == "Testol (CAS 1-2-3)"
+    pick = fusion.best(recs)
+    assert pick.source == "Paper A" and not pick.estimated  # 2 sources near 490 K beat the lone 213 K value
+    est = fusion.best([r for r in recs if r.source == "NIST"])
+    assert est.estimated and abs(est.dh_fus - 56.5 * 489.0) < 1e-6 and "Walden" in est.note
