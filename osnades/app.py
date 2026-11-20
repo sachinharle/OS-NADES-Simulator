@@ -1645,6 +1645,39 @@ def wf_phase_diagram(wf: dict, res, z: np.ndarray) -> None:
                    f"the coldest temperature of your range ({T_cold - 273.15:.0f} °C).")
     for n in pd_.notes:
         st.caption("• " + n)
+    wf_phase_downloads(res, sp_, T_cold)
+
+
+def wf_phase_downloads(res, sp_, T_cold: float) -> None:
+    """CSV / PNG / summary downloads of the workflow phase diagram."""
+    from osnades.eutectic import matplotlib_png, ratio_label, ternary_png
+
+    pd_ = sp_.diagram
+    stem = f"{res.solute}_{'_'.join(sp_.names)}_phase".replace(" ", "_")
+    if sp_.ternary:
+        png = ternary_png(pd_, T_cold, marks=[(sp_.z, "chosen solvent")])
+        data = pd_.data.rename(columns={f"z_{k}": f"x_{n}" for k, n in zip("ABC", sp_.names)})
+    else:
+        png = matplotlib_png(pd_, T_cold, marks=[(float(sp_.z[0]), "chosen solvent")])
+        data = pd_.data.rename(columns={"x_A": f"x_{sp_.names[0]}"})
+    rows = [("solute", res.solute), ("solvent components", " + ".join(sp_.names)),
+            ("chosen composition", ratio_label(sp_.z, sp_.names)),
+            *[(f"x {n}", f"{z:.4f}") for n, z in zip(sp_.names, sp_.z)],
+            ("chosen solvent melts at", sp_.melt_text()), ("eutectic", sp_.eutectic_text()),
+            ("coldest temperature of range", f"{T_cold - 273.15:.1f} °C"),
+            ("liquid over the whole range", {True: "yes", False: "no", None: "unknown"}[sp_.liquid_at(T_cold)])]
+    if sp_.ternary:
+        rows.append((f"share of triangle liquid at {T_cold - 273.15:.0f} °C", f"{pd_.liquid_fraction(T_cold):.0%}"))
+    rows += [("note", n) for n in pd_.notes]
+    summary = pd.DataFrame(rows, columns=["item", "value"])
+    st.markdown("**Export**")
+    a, b, c = st.columns(3)
+    a.download_button("Diagram (PNG)", png, f"{stem}.png", mime="image/png", key="wf_pd_png",
+                      use_container_width=True)
+    b.download_button("Liquidus data (CSV)", data.to_csv(index=False).encode(), f"{stem}.csv", mime="text/csv",
+                      key="wf_pd_csv", use_container_width=True)
+    c.download_button("Summary (CSV)", summary.to_csv(index=False).encode(), f"{stem}_summary.csv",
+                      mime="text/csv", key="wf_pd_sum", use_container_width=True)
 
 
 def page_workflow():

@@ -313,7 +313,8 @@ def plotly_figure(pd_: PhaseDiagram, T_op: float | None = None, celsius: bool = 
     return fig
 
 
-def matplotlib_png(pd_: PhaseDiagram, T_op: float | None = None) -> bytes:
+def matplotlib_png(pd_: PhaseDiagram, T_op: float | None = None,
+                   marks: list[tuple[float, str]] | None = None) -> bytes:
     import io
 
     import matplotlib
@@ -341,6 +342,8 @@ def matplotlib_png(pd_: PhaseDiagram, T_op: float | None = None) -> bytes:
                     xytext=(10, -4), textcoords="offset points", fontsize=9, color=INK)
     if T_op is not None:
         ax.axhline(T_op - off, color=PALETTE[4], ls=":", lw=1.5, label=f"operating T ({T_op - off:.1f} °C)")
+    for xm, label in marks or []:
+        ax.axvline(xm, color=INK, lw=1.8, ls="-.", label=f"{label} (x = {xm:.3f})")
     ax.set_xlim(0, 1)
     ax.set_xlabel(f"mole fraction of {pd_.a.name}, x_A", color=INK2)
     ax.set_ylabel("Temperature (°C)", color=INK2)
@@ -727,7 +730,8 @@ def ternary_figure(res: TernaryDiagram, T_op: float | None = None, celsius: bool
     return fig
 
 
-def ternary_png(res: TernaryDiagram, T_op: float | None = None) -> bytes:
+def ternary_png(res: TernaryDiagram, T_op: float | None = None,
+                marks: list[tuple[np.ndarray, str]] | None = None) -> bytes:
     import io
 
     import matplotlib
@@ -755,6 +759,11 @@ def ternary_png(res: TernaryDiagram, T_op: float | None = None) -> bytes:
         ax.plot(ex, ey, "*", ms=16, color=PALETTE[2], mec="white", mew=1.2)
         lbl = f"{res.T_e - off:.1f} °C" if np.isfinite(res.T_e) else f"< {res.T_e_upper - off:.0f} °C"
         ax.annotate(f"eutectic {lbl}", (ex[0], ey[0]), xytext=(10, 4), textcoords="offset points", fontsize=9)
+    for z, label in marks or []:
+        mx, my = to_xy(np.asarray(z, float))
+        ax.plot(mx, my, "D", ms=10, color=PALETTE[0], mec="white", mew=1.2, zorder=6)
+        ax.annotate(label, (mx[0], my[0]), xytext=(0, 9), textcoords="offset points", ha="center", fontsize=9,
+                    color=INK, bbox=dict(boxstyle="round,pad=0.2", fc=SURF, ec="none", alpha=0.8))
     ax.set_aspect("equal")
     ax.axis("off")
     ax.set_title(f"{' + '.join(res.names)}: liquidus (openCOSMO-RS)", loc="left", fontsize=11,

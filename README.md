@@ -31,7 +31,8 @@ SMILES / XYZ ──RDKit 3D──► GFN2-xTB opt (ORCA) ──► ORCA !COSMORS
      (ternary for 3 components), CSV export, and "Save as solvent". A **Phase diagram** tab computes
      the solid–liquid diagram of the solute-free solvent (binary for 2 components, ternary liquidus
      map for 3) with the chosen composition marked, its predicted melting point, the eutectic, and
-     whether it stays liquid down to the coldest temperature of the range.
+     whether it stays liquid down to the coldest temperature of the range. Export the diagram as PNG
+     (chosen solvent marked), the liquidus data as CSV, and a one-file summary CSV.
 
   The same is available as `osnades design` (`--phase-diagram` adds the phase diagram).
 * **Compound library**: add molecules or ions from presets, SMILES, XYZ, or existing `.orcacosmo`
