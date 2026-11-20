@@ -131,11 +131,63 @@ class Library:
             sp = data.pop(name, None)
             self._save(data)
         if sp:
+            if self.is_solvent(name):
+                self.remove_solvent(name)
             folder = self.dir / slugify(name)
             # never delete files another species still uses
             used = {Path(c).parts[0].lower() for v in data.values() for c in v.get("conformers", [])}
             if folder.is_dir() and folder.name.lower() not in used:
                 shutil.rmtree(folder)
+
+    # ------------------------------------------------------------------ user solvents
+    @property
+    def solvents_path(self) -> Path:
+        return self.dir / "solvents.json"
+
+    def user_solvents(self) -> dict[str, dict[str, float]]:
+        """Solvent systems the user defined (name -> {species: molar ratio})."""
+        if not self.solvents_path.exists():
+            return {}
+        return json.loads(self.solvents_path.read_text())
+
+    def _save_solvents(self, data: dict) -> None:
+        tmp = self.solvents_path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, indent=2))  # keep component order (HBA:HBD as entered)
+        tmp.replace(self.solvents_path)
+
+    def add_solvent(self, name: str, components: dict[str, float] | None = None, overwrite: bool = False) -> None:
+        """Register a solvent (a pure species when ``components`` is None, or a molar-ratio mixture)."""
+        from .thermo import presets
+
+        name = name.strip()
+        comps = {k: float(v) for k, v in (components or {name: 1.0}).items() if float(v) > 0}
+        if not name or not comps:
+            raise ValueError("A solvent needs a name and at least one component")
+        with _LOCK:
+            data = self.user_solvents()
+            taken = {k.lower(): k for k in list(presets()["solvent_systems"]) + list(data)}
+            other = taken.get(name.lower())
+            if other in presets()["solvent_systems"]:
+                raise ValueError(f"{name!r} is already a preset solvent ({other!r})")
+            if other and not overwrite:
+                raise ValueError(f"Solvent {other!r} already exists")
+            if other and other != name:
+                data.pop(other)
+            idx = self._load()
+            q = sum(idx[s]["charge"] * r for s, r in comps.items() if s in idx) / sum(comps.values())
+            if abs(q) > 1e-9:
+                raise ValueError(f"{name!r} is not electroneutral (net charge {q:+.3f} per mole)")
+            data[name] = comps
+            self._save_solvents(data)
+
+    def remove_solvent(self, name: str) -> None:
+        with _LOCK:
+            data = self.user_solvents()
+            if data.pop(name, None) is not None:
+                self._save_solvents(data)
+
+    def is_solvent(self, species: str) -> bool:
+        return self.user_solvents().get(species) == {species: 1.0}
 
     def paths(self, name: str) -> list[Path]:
         return self.get(name).conformer_paths(self.dir)

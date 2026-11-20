@@ -111,7 +111,7 @@ multi-component solvents.
     )
     lib = library()
     sp = lib.all()
-    systems = preset_systems()
+    systems = preset_systems(lib)
     ready = [s for s in systems if not missing_species([s])]
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Species in library", len(sp))
@@ -155,6 +155,7 @@ def page_library():
                   "source": s.source, "optimiser": s.optimizer, "created": s.created} for s in all_sp]
             )
             st.dataframe(df, hide_index=True, use_container_width=True)
+            my_solvents_panel(lib)
             name = st.selectbox("Inspect species", [s.name for s in all_sp])
             sp = lib.get(name)
             c1, c2 = st.columns([1, 1])
@@ -185,6 +186,25 @@ def page_library():
                         lib.update(name, dh_fus=dh * 1000 or None, t_fus=tm or None, dcp_fus=dcp or None, notes=notes)
                         st.success("Saved")
                         st.rerun()
+                preset_pure = next((k for k, v in presets()["solvent_systems"].items() if v == {name: 1}), None)
+                if preset_pure:
+                    st.caption(f"Already available as the preset solvent “{preset_pure}”.")
+                elif sp.charge == 0:
+                    on = st.toggle("Use as a solvent", value=lib.is_solvent(name), key=f"solv_{name}",
+                                   help="Adds this species as a pure solvent to the Solubility, Temperature curves "
+                                        "and NADES pages (group 'My solvents / custom').")
+                    if on != lib.is_solvent(name):
+                        try:
+                            if on:
+                                lib.add_solvent(name)
+                            else:
+                                lib.remove_solvent(name)
+                            st.toast(f"{name} {'added to' if on else 'removed from'} solvents")
+                        except ValueError as exc:
+                            st.error(str(exc))
+                else:
+                    st.caption("Ions cannot be a solvent on their own – combine them in a mixture "
+                               "(NADES designer → Custom → Save as solvent).")
                 for p in lib.paths(name):
                     st.download_button(f"Download {p.name}", p.read_bytes(), file_name=f"{name}_{p.name}", key=str(p))
                 if st.button(f"Delete {name}", type="secondary"):
@@ -215,7 +235,7 @@ def page_library():
         c1, c2, c3, c4 = st.columns(4)
         optimizer = c1.selectbox("Pre-optimisation", ["xtb", "mmff", "none"],
                                  help="GFN2-xTB(ALPB water) via ORCA, MMFF from RDKit, or use geometry as is")
-        nconf = c2.number_input("Conformers", 1, 10, 1, help="Lowest-energy RDKit conformers; all are passed to openCOSMO-RS")
+        nconf = c2.number_input("Conformers", 1, 10, 1, help="Lowest-energy RDKit conformers are computed; openCOSMO-RS uses the lowest-energy one after DFT")
         charge = c3.number_input("Charge (XYZ only)", value=0, step=1) if mode == "XYZ" else None
         mult = c4.number_input("Multiplicity (XYZ only)", value=1, min_value=1) if mode == "XYZ" else None
         if smiles:
@@ -232,6 +252,8 @@ def page_library():
             except Exception as exc:  # noqa: BLE001
                 st.error(str(exc))
         overwrite = st.checkbox("Recompute if this species already exists (replaces its σ-surfaces)", key="add_ow")
+        as_solvent = st.checkbox("Also use it as a solvent", key="add_solv",
+                                 help="Listed with the solvent systems once the ORCA job has finished.")
         if st.button("Queue ORCA calculation", type="primary", disabled=not name or not (smiles or xyz)):
             clash = lib.clash(name)
             if clash:
@@ -240,9 +262,21 @@ def page_library():
             elif lib.has(name) and not overwrite:
                 st.error(f"{name} already exists – tick the recompute option to replace it.")
             else:
+                from osnades.structures import smiles_info as _info
+
+                q = charge if charge is not None else (_info(smiles)["charge"] if smiles else 0)
+                if as_solvent and q:
+                    st.warning("Charged species cannot be a solvent on their own – not added as solvent.")
+                    as_solvent = False
                 queue_compute(name, smiles=smiles, xyz=xyz, charge=charge, multiplicity=mult,
                               n_conformers=int(nconf), optimizer=optimizer, overwrite=overwrite, **meta)
-                st.success(f"Queued {name}. Track progress on the Jobs page.")
+                if as_solvent:
+                    try:
+                        lib.add_solvent(name, overwrite=True)
+                    except ValueError as exc:
+                        st.warning(f"Not added as solvent: {exc}")
+                st.success(f"Queued {name}" + (" (also registered as a solvent)" if as_solvent else "")
+                           + ". Track progress on the Jobs page.")
 
     with tab_import:
         st.write("Import σ-surfaces computed elsewhere (e.g. the tutorial's `*.solute.orcacosmo`). "
@@ -291,7 +325,31 @@ def system_builder(key: str, lib: Library) -> SolventSystem | None:
     label = st.text_input("Label", value=":".join(s for s, _ in rows), key=f"{key}_lbl")
     if not rows:
         return None
-    return SolventSystem(label or "custom", {s: r for s, r in rows})
+    system = SolventSystem(label or "custom", {s: r for s, r in rows})
+    if st.button("Save as solvent", key=f"{key}_save", help="Keep this mixture in the solvent lists of every page"):
+        try:
+            lib.add_solvent(system.name, dict(system.components))
+            st.success(f"Saved “{system.name}” to your solvents.")
+        except ValueError as exc:
+            st.error(str(exc))
+    return system
+
+
+def my_solvents_panel(lib: Library) -> None:
+    user = lib.user_solvents()
+    with st.expander(f"My solvents ({len(user)})"):
+        if not user:
+            st.caption("None yet. Toggle “Use as a solvent” on a species below, or save a custom mixture "
+                       "with “Save as solvent”.")
+            return
+        for k, v in user.items():
+            a, b = st.columns([5, 1])
+            missing = [c for c in v if not lib.has(c)]
+            a.markdown(f"**{k}** · " + " : ".join(f"{c} {r:g}" for c, r in v.items())
+                       + (f" · ⚠️ not computed: {', '.join(missing)}" if missing else ""))
+            if b.button("Remove", key=f"rm_solv_{k}"):
+                lib.remove_solvent(k)
+                st.rerun()
 
 
 def page_solubility():
@@ -314,7 +372,7 @@ def page_solubility():
         water = st.slider("Add water to every solvent (wt%)", 0.0, 50.0, 0.0, 1.0)
         par = st.selectbox("Parameterisation", ["openCOSMORS24a"])
     with c2:
-        presets_all = preset_systems()
+        presets_all = preset_systems(lib)
         avail = [s for s in presets_all if not missing_species([s]) and solute not in s.components]
         unavailable = [s for s in presets_all if missing_species([s])]
         chosen = st.multiselect("Solvent systems", [s.name for s in avail], default=[s.name for s in avail][:12])
@@ -413,7 +471,7 @@ def page_curves():
         method = st.radio("Method", ["iterative", "infinite_dilution"], key="cv_method")
         water = st.slider("Add water (wt%)", 0.0, 50.0, 0.0, 1.0, key="cv_water")
 
-    ready = [s for s in preset_systems() if not missing_species([s]) and solute not in s.components]
+    ready = [s for s in preset_systems(lib) if not missing_species([s]) and solute not in s.components]
     groups = group_systems([s.name for s in ready])
     with st.expander(f"Solvent systems ({len(ready)} ready)", expanded=False):
         chosen = []
@@ -555,7 +613,7 @@ def page_nades():
         return
     t1, t2, t3 = st.tabs(["Mixture activity", "Binary G^E", "Eutectic phase diagram"])
     with t1:
-        presets_ok = [s for s in preset_systems() if not missing_species([s]) and len(s.components) > 1]
+        presets_ok = [s for s in preset_systems(lib) if not missing_species([s]) and len(s.components) > 1]
         src = st.radio("System", ["Preset", "Custom"], horizontal=True)
         if src == "Preset" and presets_ok:
             name = st.selectbox("Preset", [s.name for s in presets_ok])

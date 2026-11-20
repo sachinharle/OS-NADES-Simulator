@@ -133,3 +133,23 @@ def test_multi_conformer_species_uses_lowest_energy(engine):
     assert e[best.name] == min(e.values())
     assert np.isfinite(engine.ln_gamma(["water2", "ethanol"], np.array([[0.5, 0.5]]), 298.15)).all()
     lib.remove("water2")
+
+
+def test_user_solvents(tmp_path):
+    from osnades.thermo import preset_systems
+
+    lib = Library(Settings(home=tmp_path, orca_home=None))
+    lib.import_orcacosmo("my alcohol", [FIX / "ethanol.orcacosmo"], smiles="CCO")
+    lib.import_orcacosmo("water", [FIX / "water.orcacosmo"], smiles="O")
+    lib.add_solvent("my alcohol")
+    lib.add_solvent("EtOH:H2O 3:1", {"my alcohol": 3, "water": 1})
+    assert lib.is_solvent("my alcohol")
+    names = [s.name for s in preset_systems(lib)]
+    assert "my alcohol" in names and "EtOH:H2O 3:1" in names and "Water" in names
+    assert SolventSystem.parse("EtOH:H2O 3:1", lib).components == {"my alcohol": 3.0, "water": 1.0}
+    with pytest.raises(ValueError, match="preset"):
+        lib.add_solvent("water")  # clashes with the preset "Water"
+    with pytest.raises(ValueError, match="exists"):
+        lib.add_solvent("My Alcohol")
+    lib.remove("my alcohol")  # deleting a species drops its pure-solvent entry
+    assert not lib.is_solvent("my alcohol") and "EtOH:H2O 3:1" in lib.user_solvents()

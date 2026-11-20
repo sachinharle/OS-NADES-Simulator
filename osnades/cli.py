@@ -104,7 +104,7 @@ def cmd_remove(a):
 
 
 def _resolve_systems(lib, specs, water):
-    systems = [SolventSystem.parse(t) for t in specs] if specs else preset_systems()
+    systems = [SolventSystem.parse(t, lib) for t in specs] if specs else preset_systems(lib)
     out = []
     for sy in systems:
         missing = [c for c in sy.species if not lib.has(c)]
@@ -192,10 +192,33 @@ def cmd_eutectic(a):
     return 0
 
 
+def cmd_solvent(a):
+    s, lib = _lib()
+    if a.action == "list":
+        user = lib.user_solvents()
+        if not user:
+            print("No user solvents. Add one with: osnades solvent add <name> [\"a:b=1:2\"]")
+        for k, v in user.items():
+            missing = [c for c in v if not lib.has(c)]
+            print(f"{k}: " + ", ".join(f"{c} {r:g}" for c, r in v.items()) + (f"   (missing: {missing})" if missing else ""))
+        return 0
+    if not a.name:
+        raise ValueError("Give a solvent name")
+    if a.action == "remove":
+        lib.remove_solvent(a.name)
+        print(f"Removed solvent {a.name}")
+        return 0
+    comps = SolventSystem.parse(a.spec).components if a.spec else None
+    lib.add_solvent(a.name, comps, overwrite=a.overwrite)
+    missing = [c for c in (comps or {a.name: 1}) if not lib.has(c)]
+    print(f"Added solvent {a.name}" + (f" (compute first: {', '.join(missing)})" if missing else ""))
+    return 0
+
+
 def cmd_bootstrap(a):
     """Compute all preset species needed for the given solvent systems."""
     s, lib = _lib()
-    systems = [SolventSystem.parse(t) for t in a.systems] if a.systems else preset_systems()
+    systems = [SolventSystem.parse(t, lib) for t in a.systems] if a.systems else preset_systems()
     needed = sorted({c for sy in systems for c in sy.species} | set(a.species or []))
     pre = presets()["species"]
     for name in needed:
@@ -276,6 +299,11 @@ def main(argv=None):
     q.add_argument("a"); q.add_argument("b"); q.add_argument("-T", type=float, default=298.15)
     q.add_argument("-n", type=int, default=21); q.add_argument("--parameterization", default="openCOSMORS24a")
     q.set_defaults(fn=cmd_binary)
+
+    q = sub.add_parser("solvent", help="manage your own solvents (pure species or mixtures)")
+    q.add_argument("action", choices=["add", "list", "remove"]); q.add_argument("name", nargs="?")
+    q.add_argument("spec", nargs="?", help='species name or "a:b:c=1:1:2" (default: the species called NAME)')
+    q.add_argument("--overwrite", action="store_true"); q.set_defaults(fn=cmd_solvent)
 
     q = sub.add_parser("eutectic", help="solid–liquid phase diagram / eutectic point of an HBA + HBD pair")
     q.add_argument("a", help='component A: species, preset salt ("choline chloride") or "cation+anion"')

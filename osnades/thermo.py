@@ -72,10 +72,12 @@ class SolventSystem:
         return float(sum(library.get(s).charge * f for s, f in zip(self.species, self.fractions)))
 
     @staticmethod
-    def parse(text: str) -> "SolventSystem":
-        """Parse ``"choline:chloride:urea=1:1:2"``, ``"water"`` or a preset name."""
+    def parse(text: str, library: Library | None = None) -> "SolventSystem":
+        """Parse ``"choline:chloride:urea=1:1:2"``, ``"water"``, a preset or a user-defined solvent name."""
         text = text.strip()
-        systems = presets()["solvent_systems"]
+        systems = dict(presets()["solvent_systems"])
+        if library is not None:
+            systems.update(library.user_solvents())
         if text in systems:
             return SolventSystem(text, dict(systems[text]))
         for k in systems:  # case-insensitive preset lookup
@@ -91,8 +93,12 @@ class SolventSystem:
         return SolventSystem(text, {text: 1.0})
 
 
-def preset_systems() -> list[SolventSystem]:
-    return [SolventSystem(k, dict(v)) for k, v in presets()["solvent_systems"].items()]
+def preset_systems(library: Library | None = None) -> list[SolventSystem]:
+    """Preset solvent systems, followed by the user's own solvents when a library is given."""
+    out = [SolventSystem(k, dict(v)) for k, v in presets()["solvent_systems"].items()]
+    if library is not None:
+        out += [SolventSystem(k, dict(v)) for k, v in library.user_solvents().items()]
+    return out
 
 
 # ---------------------------------------------------------------------------- results

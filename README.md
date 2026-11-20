@@ -17,6 +17,10 @@ SMILES / XYZ ──RDKit 3D──► GFN2-xTB opt (ORCA) ──► ORCA !COSMORS
 * **Compound library**: add molecules or ions from presets, SMILES, XYZ, or existing `.orcacosmo`
   files. The library supports several conformers per species and shows a 3D viewer, σ-profiles
   and σ-moment descriptors.
+* **Your own solvents**: switch on "Use as a solvent" for any neutral library species, tick
+  "Also use it as a solvent" when adding a new molecule, or press "Save as solvent" on a custom
+  mixture. These solvents then show up on the Solubility, Temperature curves and NADES pages (group
+  "My solvents / custom") and in the CLI. They are stored in `data/library/solvents.json`.
 * **Solubility**: ideal-solid SLE, `ln(xγ) = -ΔH_fus/R(1/T-1/T_m) + ΔCp/R(T_m/T-1-ln(T_m/T))`.
   * The *iterative* mode solves the equation self-consistently with a bracketed root search.
   * The *infinite-dilution* mode is the tutorial's non-iterative variant.
@@ -88,6 +92,9 @@ osnades solubility paracetamol -s Water -s Ethanol -s "Reline (ChCl:Urea 1:2)" -
 osnades solubility paracetamol -s "choline:chloride:glycerol=1:1:2" --water 10 --csv out.csv
 osnades curves paracetamol --tmin 0 --tmax 80 -o results/paracetamol_solubility_vs_T   # CSV + grouped PNG
 osnades binary water ethanol -T 298.15
+osnades solvent add vanillin                              # use a library species as a solvent
+osnades solvent add "Thymol:Decanoic acid 1:2" "thymol:decanoic acid=1:2"
+osnades solvent list
 osnades eutectic thymol menthol -T 298.15 -o thymol_menthol   # eutectic point, liquid window, CSV + PNG
 osnades eutectic "choline chloride" urea --dh-b 14600 --tm-b 406
 ```

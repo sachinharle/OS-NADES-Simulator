@@ -13,7 +13,7 @@ from .thermo import Engine, SolventSystem, ideal_rhs, presets
 PALETTE = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
 INK, INK2, GRID, SURF = "#1f1f1e", "#5f5e58", "#e6e5e0", "#fcfcfb"
 MAX_PER_PANEL = len(PALETTE)
-OTHER = "Custom / other"
+OTHER = "My solvents / custom"
 
 
 def group_systems(names: list[str]) -> "OrderedDict[str, list[str]]":
