@@ -161,6 +161,37 @@ def cmd_binary(a):
     return 0
 
 
+def cmd_eutectic(a):
+    from .eutectic import matplotlib_png, phase_diagram, resolve_component
+
+    s, lib = _lib()
+    A = resolve_component(a.a, lib, a.dh_a, a.tm_a, a.dcp_a)
+    B = resolve_component(a.b, lib, a.dh_b, a.tm_b, a.dcp_b)
+    for c in (A, B):
+        print(f"{c.name}: ΔH_fus = {c.dh_fus / 1000:.2f} kJ/mol, T_m = {c.t_fus:.1f} K ({c.source})")
+    res = phase_diagram(Engine(lib, a.parameterization), A, B, n=a.n)
+    print()
+    if np.isfinite(res.T_e):
+        print(f"Eutectic (openCOSMO-RS): x_{A.name} = {res.x_e:.3f}, T = {res.T_e:.1f} K ({res.T_e - 273.15:.1f} °C)")
+    elif np.isfinite(res.T_e_upper):
+        print(f"Eutectic (openCOSMO-RS): below {res.T_e_upper:.0f} K near x_{A.name} ≈ {res.x_e:.2f}")
+    print(f"Eutectic (ideal):        x_{A.name} = {res.x_e_ideal:.3f}, T = {res.T_e_ideal:.1f} K "
+          f"({res.T_e_ideal - 273.15:.1f} °C)")
+    if np.isfinite(res.depression):
+        print(f"Depression below ideal: {res.depression:.1f} K")
+    if a.T is not None:
+        w = res.liquid_window(a.T)
+        print(f"Liquid at {a.T:.2f} K for x_{A.name} = " + (f"{w[0]:.3f}–{w[1]:.3f}" if w else "none"))
+    for n in res.notes:
+        print(f"note: {n}")
+    if a.out:
+        out = Path(a.out)
+        res.data.to_csv(out.with_suffix(".csv"), index=False)
+        out.with_suffix(".png").write_bytes(matplotlib_png(res, a.T))
+        print(f"Saved {out.with_suffix('.csv')} and {out.with_suffix('.png')}")
+    return 0
+
+
 def cmd_bootstrap(a):
     """Compute all preset species needed for the given solvent systems."""
     s, lib = _lib()
@@ -245,6 +276,18 @@ def main(argv=None):
     q.add_argument("a"); q.add_argument("b"); q.add_argument("-T", type=float, default=298.15)
     q.add_argument("-n", type=int, default=21); q.add_argument("--parameterization", default="openCOSMORS24a")
     q.set_defaults(fn=cmd_binary)
+
+    q = sub.add_parser("eutectic", help="solid–liquid phase diagram / eutectic point of an HBA + HBD pair")
+    q.add_argument("a", help='component A: species, preset salt ("choline chloride") or "cation+anion"')
+    q.add_argument("b", help="component B")
+    q.add_argument("-n", type=int, default=41, help="composition grid points")
+    q.add_argument("-T", type=float, help="operating temperature (K): report the liquid composition window")
+    for c in ("a", "b"):
+        q.add_argument(f"--dh-{c}", type=float, help=f"ΔH_fus of {c.upper()} (J/mol)")
+        q.add_argument(f"--tm-{c}", type=float, help=f"T_m of {c.upper()} (K)")
+        q.add_argument(f"--dcp-{c}", type=float, help=f"ΔCp_fus of {c.upper()} (J/mol/K)")
+    q.add_argument("--parameterization", default="openCOSMORS24a"); q.add_argument("-o", "--out")
+    q.set_defaults(fn=cmd_eutectic)
 
     q = sub.add_parser("app", help="launch the web application"); q.add_argument("--port", type=int, default=8501)
     q.set_defaults(fn=cmd_app)

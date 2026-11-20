@@ -32,6 +32,11 @@ SMILES / XYZ ──RDKit 3D──► GFN2-xTB opt (ORCA) ──► ORCA !COSMORS
   * A custom HBA:HBD:… builder with an electroneutrality check.
   * Pick a solute to compare its ideal mole fraction (γ = 1, from ΔH_fus/T_m/ΔCp only) with the
     openCOSMO-RS solubility in the designed mixture (x/x_ideal, ln γ, g/kg, and a T scan).
+  * **Eutectic phase diagram** of an HBA + HBD pair: the liquidus of each component, the eutectic
+    point, how far it lies below the ideal eutectic (how "deep" it is), and the composition window
+    that is liquid at your operating temperature. Salts such as choline chloride are handled as ions,
+    referenced to their pure molten salt. Approximate literature fusion data ship for water, ChCl, urea,
+    glycerol, ethylene glycol, menthol, thymol, decanoic acid, glucose and DMSO.
   * Per-species activity coefficients (residual and combinatorial), the mixture σ-profile,
     and binary Gᴱ/RT curves.
 * **ORCA backends**:
@@ -83,6 +88,8 @@ osnades solubility paracetamol -s Water -s Ethanol -s "Reline (ChCl:Urea 1:2)" -
 osnades solubility paracetamol -s "choline:chloride:glycerol=1:1:2" --water 10 --csv out.csv
 osnades curves paracetamol --tmin 0 --tmax 80 -o results/paracetamol_solubility_vs_T   # CSV + grouped PNG
 osnades binary water ethanol -T 298.15
+osnades eutectic thymol menthol -T 298.15 -o thymol_menthol   # eutectic point, liquid window, CSV + PNG
+osnades eutectic "choline chloride" urea --dh-b 14600 --tm-b 406
 ```
 
 ![Paracetamol solubility vs temperature](results/paracetamol_solubility_vs_T.png)
@@ -112,6 +119,11 @@ values come from `fsolve` applied to `|f(x)|`, so they are not converged roots.
   ionisation/pH, and LLE (a warning is shown if several roots exist).
 * ΔH_fus and T_m have a big effect on the result. Only paracetamol ships with a value (NIST, as in
   the tutorial); enter your own for other solutes.
+* Eutectic diagrams assume pure, immiscible solids (no co-crystals or solid solutions). For neutral
+  pairs (e.g. thymol:menthol, predicted eutectic at x_thymol = 0.41, −4.5 °C) results are reasonable.
+  For choline chloride, COSMO-RS over-stabilises the split ions, so the eutectic comes out far too
+  deep (often below the temperatures where the model converges, which is reported as a bound).
+  Use these results to compare candidates, not as absolute melting points.
 * Running under Docker emulation, one species takes ~1–3 min (more for big molecules or several
   conformers).
 

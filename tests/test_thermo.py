@@ -84,3 +84,29 @@ def test_structures():
     assert len(g) >= 1 and len(g[0].symbols) == 9
     g2 = parse_xyz(g[0].to_xyz())
     assert g2.formula == "C2H6O" and g2.molar_mass == pytest.approx(46.07, abs=0.01)
+
+
+# ---------------------------------------------------------------- eutectic phase diagram
+def test_eutectic_phase_diagram(engine):
+    from osnades.eutectic import Component, EutecticSolver, _t_from_lna
+    from osnades.thermo import ideal_rhs
+
+    para = Component("paracetamol", {"paracetamol": 1.0}, 27100.0, 443.6)
+    water = Component("water", {"water": 1.0}, 6009.5, 273.15)
+    sol = EutecticSolver(engine, para, water)
+    pd_ = sol.solve(n=11)
+    d = pd_.data
+    # pure-component end points
+    assert d.T_A.iloc[-1] == pytest.approx(443.6)
+    assert d.T_B.iloc[0] == pytest.approx(273.15)
+    # neutral component activity = x γ with the pure-liquid reference
+    x, T = 0.3, 350.0
+    lg = engine.ln_gamma_pure_ref(["paracetamol", "water"], np.array([[x, 1 - x]]), T)[0]
+    assert sol.ln_a(x, T, 0) == pytest.approx(np.log(x) + lg, abs=1e-9)
+    # the eutectic satisfies both SLE conditions
+    assert np.isfinite(pd_.T_e) and 0 < pd_.x_e < 0.05 and pd_.T_e < 273.15
+    for which, c in ((0, para), (1, water)):
+        assert sol.ln_a(pd_.x_e, pd_.T_e, which) == pytest.approx(ideal_rhs(pd_.T_e, c.dh_fus, c.t_fus), abs=2e-3)
+    # ideal curve: closed form 1/T = 1/Tm - R ln x / ΔH
+    assert _t_from_lna(np.log(0.5), para) == pytest.approx(1 / (1 / 443.6 - 8.314462618 * np.log(0.5) / 27100.0))
+    assert pd_.liquid_window(260.0) is None

@@ -548,7 +548,7 @@ def page_nades():
     if len(lib.names()) < 2:
         st.info("Add at least two species.")
         return
-    t1, t2 = st.tabs(["Mixture activity", "Binary G^E"])
+    t1, t2, t3 = st.tabs(["Mixture activity", "Binary G^E", "Eutectic phase diagram"])
     with t1:
         presets_ok = [s for s in preset_systems() if not missing_species([s]) and len(s.components) > 1]
         src = st.radio("System", ["Preset", "Custom"], horizontal=True)
@@ -598,6 +598,82 @@ def page_nades():
             fig.update_layout(xaxis_title=f"x({s1})", yaxis_title="", height=420)
             st.plotly_chart(fig, use_container_width=True)
             st.caption("Negative Gᴱ: favourable mixing (typical for good HBA/HBD eutectic partners).")
+    with t3:
+        eutectic_panel(lib)
+
+
+def eutectic_panel(lib: Library) -> None:
+    from osnades.eutectic import component_names, fusion_defaults, phase_diagram, plotly_figure
+
+    st.markdown("Solid–liquid equilibrium of an **HBA + HBD** pair: liquidus of each component, the eutectic "
+                "point and the composition window that is liquid at your operating temperature.")
+    names = component_names(lib)
+    if len(names) < 2:
+        st.info("Add at least two components.")
+        return
+    cols = st.columns(2)
+    comps = []
+    defaults = ("choline chloride", "urea") if "choline chloride" in names else (names[0], names[1])
+    for i, (col, lab) in enumerate(zip(cols, ("A (HBA)", "B (HBD)"))):
+        with col:
+            opts = names if i == 0 else [n for n in names if n != comps[0][0]]
+            d = defaults[i] if defaults[i] in opts else opts[0]
+            name = st.selectbox(f"Component {lab}", opts, index=opts.index(d), key=f"eu_c{i}")
+            dh0, tm0, dcp0, src = fusion_defaults(name, lib)
+            a, b, c = st.columns(3)
+            dh = a.number_input("ΔH_fus (kJ/mol)", value=float(dh0 / 1000) if dh0 else 20.0, min_value=0.1,
+                                key=f"eu_dh{i}_{name}")
+            tm = b.number_input("T_m (K)", value=float(tm0 or 350.0), min_value=1.0, key=f"eu_tm{i}_{name}")
+            dcp = c.number_input("ΔCp (J/mol/K)", value=float(dcp0 or 0.0), key=f"eu_dcp{i}_{name}")
+            st.caption(f"Fusion data: {src}" if dh0 and tm0 else "⚠️ No stored fusion data – enter literature values.")
+            comps.append((name, dh, tm, dcp))
+    a, b, c = st.columns(3)
+    T_op = a.number_input("Operating T (K)", value=298.15, key="eu_Top")
+    n = int(b.number_input("Composition points", 11, 101, 41, step=10, key="eu_n"))
+    c.write("")
+    run = c.button("Compute phase diagram", type="primary", key="eu_run")
+    if run:
+        from osnades.eutectic import resolve_component
+
+        try:
+            A, B = (resolve_component(nm, lib, dh * 1000, tm, dcp) for nm, dh, tm, dcp in comps)
+            prog = st.progress(0.0, text="Solving liquidus curves…")
+            res = phase_diagram(engine(), A, B, n=n, progress=lambda f: prog.progress(f))
+            prog.empty()
+            st.session_state.eu_res = res
+        except Exception as e:  # noqa: BLE001
+            st.error(str(e))
+    res = st.session_state.get("eu_res")
+    if res is None:
+        return
+    m1, m2, m3, m4 = st.columns(4)
+    if np.isfinite(res.T_e):
+        m1.metric("Eutectic x_A", f"{res.x_e:.3f}")
+        m2.metric("Eutectic T", f"{res.T_e - 273.15:.1f} °C", f"{res.T_e:.1f} K", delta_color="off")
+    else:
+        m1.metric("Eutectic x_A", f"≈ {res.x_e:.2f}" if np.isfinite(res.x_e) else "—")
+        m2.metric("Eutectic T", f"< {res.T_e_upper:.0f} K" if np.isfinite(res.T_e_upper) else "—")
+    m3.metric("Ideal eutectic", f"{res.T_e_ideal - 273.15:.1f} °C", f"x = {res.x_e_ideal:.3f}", delta_color="off")
+    dep = res.depression if np.isfinite(res.depression) else (res.T_e_ideal - res.T_e_upper)
+    m4.metric("Depression", (f"{dep:.1f} K" if np.isfinite(res.depression) else f"> {dep:.0f} K")
+              if np.isfinite(dep) else "—", help="Positive = deeper than ideal (a 'deep' eutectic)")
+    st.plotly_chart(plotly_figure(res, T_op), use_container_width=True)
+    w = res.liquid_window(T_op)
+    if w:
+        st.success(f"Liquid at {T_op - 273.15:.1f} °C for x_{res.a.name} = {w[0]:.3f} – {w[1]:.3f} "
+                   f"(A:B molar ratio {w[0] / (1 - w[0]):.2f} – {w[1] / max(1e-9, 1 - w[1]):.2f}).")
+    else:
+        st.warning(f"No composition is fully liquid at {T_op - 273.15:.1f} °C.")
+    for note in res.notes:
+        st.info(note)
+    with st.expander("Data"):
+        st.dataframe(res.data.style.format(precision=4), hide_index=True, use_container_width=True)
+        st.download_button("Download CSV", res.data.to_csv(index=False).encode(),
+                           file_name=f"eutectic_{res.a.name}_{res.b.name}.csv".replace(" ", "_"), key="eu_dl")
+    st.caption("Ideal-solid SLE with immiscible solids (no co-crystals or solid solutions). Salts are split into ions "
+               "and referenced to their pure molten salt; COSMO-RS tends to over-stabilise ions, so ChCl eutectics "
+               "come out too deep – compare candidates relative to each other. Fusion data drive the result; "
+               "preset values are approximate literature numbers.")
 
 
 # --------------------------------------------------------------------------- jobs
