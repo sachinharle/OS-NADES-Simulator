@@ -106,7 +106,11 @@ def cmd_fusion(a):
     from . import fusion
 
     s, lib = _lib()
-    names = [sp.name for sp in lib.all() if sp.charge == 0 and not (sp.dh_fus and sp.t_fus)] if a.all else a.names
+    def wanted(sp):
+        src = sp.fusion_source or ""
+        return not (sp.dh_fus and sp.t_fus) or (a.estimates and ("Walden" in src or "estimate" in src))
+
+    names = [sp.name for sp in lib.all() if sp.charge == 0 and wanted(sp)] if a.all else a.names
     if not names:
         print("Nothing to look up (give species names or --all).")
         return 0
@@ -304,6 +308,7 @@ def main(argv=None):
     q.add_argument("--dcp-fus", type=float); q.set_defaults(fn=cmd_set)
     q = sub.add_parser("fusion", help="look up published fusion data (ΔH_fus, T_m) of species")
     q.add_argument("names", nargs="*"); q.add_argument("--all", action="store_true", help="all species without data")
+    q.add_argument("--estimates", action="store_true", help="with --all: also re-check estimated values")
     q.add_argument("--apply", action="store_true", help="store the suggested values"); q.set_defaults(fn=cmd_fusion)
     q = sub.add_parser("remove", help="remove a species"); q.add_argument("name"); q.set_defaults(fn=cmd_remove)
 

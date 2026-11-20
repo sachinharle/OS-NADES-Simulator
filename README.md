@@ -18,12 +18,14 @@ SMILES / XYZ ──RDKit 3D──► GFN2-xTB opt (ORCA) ──► ORCA !COSMORS
   files. The library supports several conformers per species and shows a 3D viewer, σ-profiles
   and σ-moment descriptors.
 * **Fusion data lookup**: when you add a neutral compound, its measured ΔH_fus and T_m are fetched
-  automatically from [Cheméo](https://www.chemeo.com), which collects NIST WebBook and literature DSC
-  values. The compound is matched by InChIKey, so only the exact molecule is accepted. The source
+  automatically from [Cheméo](https://www.chemeo.com) (NIST and literature DSC values) and the
+  [NIST WebBook](https://webbook.nist.gov) (including melting of individual crystal forms). The compound is matched by InChIKey, so only the exact molecule is accepted. The source
   reference (DOI) is stored with the species. If only a melting point is published, ΔH_fus is estimated
-  with Walden's rule (ΔS_fus ≈ 56.5 J/mol/K) and flagged as an estimate. In the library, "Look up
-  published values" lists every value found so you can pick another reference. Values you enter
-  yourself are never overwritten.
+  with Walden's rule (ΔS_fus ≈ 56.5 J/mol/K) and flagged as an estimate. The library's **Fusion data**
+  tab shows the status of every species (measured / entered by you / estimate / missing), searches
+  all missing (or estimated, or all) species at once, and lets you review the results before saving.
+  "Look up published values" on a single species lists every value found so you can pick another
+  reference. Values you enter yourself are never overwritten unless you tick them.
 * **Your own solvents**: switch on "Use as a solvent" for any neutral library species, tick
   "Also use it as a solvent" when adding a new molecule, or press "Save as solvent" on a custom
   mixture. These solvents then show up on the Solubility, Temperature curves and NADES pages (group
@@ -97,6 +99,7 @@ osnades import myspecies conf0.orcacosmo conf1.orcacosmo  # reuse σ-surfaces
 osnades list
 osnades fusion paraCoumaric_acid                          # list published ΔH_fus / T_m; --apply stores the suggestion
 osnades fusion --all --apply                              # fill in every neutral species that has no data
+osnades fusion --all --estimates                          # also re-check estimated values
 osnades solubility paracetamol -s Water -s Ethanol -s "Reline (ChCl:Urea 1:2)" -T 298.15 318.15
 osnades solubility paracetamol -s "choline:chloride:glycerol=1:1:2" --water 10 --csv out.csv
 osnades curves paracetamol --tmin 0 --tmax 80 -o results/paracetamol_solubility_vs_T   # CSV + grouped PNG

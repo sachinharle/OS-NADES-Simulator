@@ -1,7 +1,8 @@
 """Look up experimental fusion data (ΔH_fus, T_m) for a compound.
 
-Source: Cheméo (https://www.chemeo.com), which collects measured values from the NIST WebBook and
-the literature (each value carries its reference). Rows that Cheméo marks as *Calculated Property*
+Sources: Cheméo (https://www.chemeo.com), which collects measured values from the NIST WebBook and
+the literature (each value carries its reference), and the NIST Chemistry WebBook itself
+(https://webbook.nist.gov, phase-change data incl. crystal → liquid transitions of polymorphs). Rows that Cheméo marks as *Calculated Property*
 (Joback etc.) are ignored. The compound is found by its InChIKey (from the SMILES) and, failing
 that, by name. When only a melting point is known, ΔH_fus can be estimated with Walden's rule
 (ΔS_fus ≈ 56.5 J/mol/K); such values are flagged as estimates.
@@ -158,12 +159,20 @@ def _inchikey(smiles: str | None = None, molblock: str | None = None) -> str | N
     return Chem.MolToInchiKey(mol) if mol is not None else None
 
 
-def lookup(smiles: str | None = None, name: str | None = None, timeout: float = 15.0,
-           max_pages: int = 12) -> list[FusionRecord]:
-    """All experimental fusion records for a compound (empty list if none). Raises on network errors.
+def _match(found: str | None, key: str | None) -> str | None:
+    """Compare a database entry's InChIKey with the query (None = different compound)."""
+    if not key:
+        return "name"
+    if not found or found.split("-")[0] != key.split("-")[0]:
+        return None
+    if found == key:
+        return "exact"
+    return "unspecified" if found.split("-")[1] == "UHFFFAOYSA" else "isomer"  # UHFFFAOYSA = no stereo layer
 
-    Cheméo's search also returns similar compounds, so each hit's structure is checked: same InChIKey
-    = exact match; same skeleton (first InChIKey block) = stereoisomer or an entry without stereo information."""
+
+def lookup_chemeo(smiles: str | None = None, name: str | None = None, timeout: float = 15.0,
+                  max_pages: int = 12) -> list[FusionRecord]:
+    """Cheméo records. Its search also returns similar compounds, so each hit's structure is checked."""
     key = _inchikey(smiles) if smiles else None
     hits = _search(key, timeout) if key else []
     if not hits and name:
@@ -171,22 +180,107 @@ def lookup(smiles: str | None = None, name: str | None = None, timeout: float = 
     recs: list[FusionRecord] = []
     for path in hits[:max_pages]:
         url = BASE + path
-        match = "name"
-        if key:
-            try:
-                k = _inchikey(molblock=_get(url + ".2dmol", timeout))
-            except Exception:  # noqa: BLE001
-                k = None
-            if not k or k.split("-")[0] != key.split("-")[0]:
-                continue  # a different compound
-            if k == key:
-                match = "exact"
-            elif k.split("-")[1] == "UHFFFAOYSA":  # standard InChIKey block for "no stereo layer"
-                match = "unspecified"
-            else:
-                match = "isomer"
+        try:
+            found = _inchikey(molblock=_get(url + ".2dmol", timeout)) if key else None
+        except Exception:  # noqa: BLE001
+            found = None
+        match = _match(found, key)
+        if match is None:
+            continue
         recs += parse_page(_get(url, timeout), url, match)
     return recs
+
+
+NIST = "https://webbook.nist.gov"
+
+
+def parse_nist_page(page: str, url: str = "", match: str = "exact") -> list[FusionRecord]:
+    """Fusion rows of a NIST WebBook phase-change page (Mask=4): 'Enthalpy of fusion' table,
+    crystal → liquid rows of 'Enthalpy of phase transition', and measured T_fus values."""
+    m = re.search(r"<h1[^>]*>(.*?)</h1>", page, re.S)
+    compound = _text(m.group(1)) if m else "NIST entry"
+    refs = {k: _text(v) for k, v in re.findall(r'<a href="#(ref-\d+)">(.*?)</a>', page)}
+    recs: list[FusionRecord] = []
+    for label, body in re.findall(r'<table[^>]*aria-label="([^"]*)"[^>]*>(.*?)</table>', page, re.S):
+        for tr in re.findall(r'<tr class="exp">(.*?)</tr>', body, re.S):
+            tds = [_text(t) for t in re.findall(r"<td[^>]*>(.*?)</td>", tr, re.S)]
+            ref = re.search(r'href="#(ref-\d+)"', tr)
+            src = f"NIST ({refs.get(ref.group(1), '')})" if ref else "NIST"
+            num = lambda x: float(x.split("±")[0].strip().rstrip(".") or "nan")  # noqa: E731
+            try:
+                if label == "Enthalpy of fusion" and len(tds) >= 3:
+                    recs.append(FusionRecord(num(tds[0]) * 1000, num(tds[1]), src, compound, url, match=match,
+                                             via="NIST WebBook"))
+                elif (label == "Enthalpy of phase transition" and len(tds) >= 5 and "cryst" in tds[2]
+                      and tds[3].startswith("liquid")):
+                    form = re.search(r"(form [IV]+|crystaline, [IV]+)", tds[2] + " " + tds[5] if len(tds) > 5 else tds[2])
+                    recs.append(FusionRecord(num(tds[0]) * 1000, num(tds[1]),
+                                             src + (f", {form.group(1).replace('crystaline', 'crystal')}" if form else ""),
+                                             compound, url, match=match, via="NIST WebBook"))
+                elif label == "One dimensional data" and tds and tds[0].replace(" ", "") == "Tfus":
+                    recs.append(FusionRecord(None, num(tds[1]), src, compound, url, match=match, via="NIST WebBook"))
+            except ValueError:
+                continue
+    return [r for r in recs if (r.t_fus is None or r.t_fus == r.t_fus) and (r.dh_fus is None or r.dh_fus > 0)]
+
+
+def lookup_nist(smiles: str | None, timeout: float = 15.0, max_pages: int = 4) -> list[FusionRecord]:
+    """NIST WebBook records, found by InChI (with and without stereo)."""
+    if not smiles:
+        return []
+    from rdkit import Chem, RDLogger
+
+    RDLogger.DisableLog("rdApp.*")
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        return []
+    key = Chem.MolToInchiKey(mol)
+    inchis = [Chem.MolToInchi(mol)]
+    flat = Chem.MolFromSmiles(Chem.MolToSmiles(mol, isomericSmiles=False))
+    if flat is not None and Chem.MolToInchi(flat) not in inchis:
+        inchis.append(Chem.MolToInchi(flat))
+    pages: list[str] = []
+    for inchi in inchis:
+        url = f"{NIST}/cgi/cbook.cgi?InChI={urllib.parse.quote(inchi)}&Units=SI&Mask=4"
+        page = _get(url, timeout)
+        if "Matches found" in page:  # several species: follow their links
+            ids = re.findall(r'href="/cgi/cbook\.cgi\?ID=(C?\d+)&amp;Units=SI&amp;Mask=4"', page)
+            pages += [f"{NIST}/cgi/cbook.cgi?ID={i}&Units=SI&Mask=4" for i in dict.fromkeys(ids)]
+        elif "aria-label" in page:
+            pages.append(url)
+    recs: list[FusionRecord] = []
+    seen = set()
+    for url in pages[:max_pages]:
+        page = _get(url, timeout)
+        k = re.search(r"InChIKey[^A-Z]*([A-Z]{14}-[A-Z]{10}-[A-Z])", page)
+        match = _match(k.group(1) if k else None, key)
+        if match is None or (k and k.group(1) in seen):
+            continue
+        if k:
+            seen.add(k.group(1))
+        recs += parse_nist_page(page, url, match)
+    return recs
+
+
+def lookup(smiles: str | None = None, name: str | None = None, timeout: float = 15.0) -> list[FusionRecord]:
+    """All experimental fusion records from Cheméo and the NIST WebBook (duplicates removed).
+    Raises only if every source fails."""
+    recs: list[FusionRecord] = []
+    errors = []
+    for fn in (lambda: lookup_chemeo(smiles, name, timeout), lambda: lookup_nist(smiles, timeout)):
+        try:
+            recs += fn()
+        except Exception as exc:  # noqa: BLE001
+            errors.append(exc)
+    if errors and len(errors) == 2:
+        raise errors[0]
+    out, seen = [], set()
+    for r in recs:  # Cheméo republishes NIST data: keep one copy
+        sig = (r.source.split(",")[0], round(r.dh_fus or 0, -1), round(r.t_fus or 0, 1), r.match)
+        if sig not in seen:
+            seen.add(sig)
+            out.append(r)
+    return out
 
 
 def _clusters(recs: list[FusionRecord], tol: float = 3.0) -> list[list[FusionRecord]]:
@@ -211,7 +305,7 @@ def best(records: list[FusionRecord], estimate: bool = True) -> FusionRecord | N
             continue
         def score(g):
             srcs = {r.source for r in g}
-            return len(srcs) + 0.5 * any(s == "NIST" for s in srcs) + 0.25 * any(r.dh_fus for r in g)
+            return len(srcs) + 0.5 * any(s.startswith("NIST") for s in srcs) + 0.25 * any(r.dh_fus for r in g)
         g = max(groups, key=score)
         med = statistics.median(r.t_fus for r in g)
         paired = [r for r in g if r.dh_fus] or [r for r in pool if r.dh_fus and r.t_fus]

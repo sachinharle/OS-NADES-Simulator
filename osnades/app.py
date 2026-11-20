@@ -205,12 +205,112 @@ def fusion_editor(lib: Library, sp) -> None:
         st.rerun()
 
 
+def fusion_status(sp) -> str:
+    src = sp.fusion_source or ""
+    if not (sp.dh_fus and sp.t_fus):
+        return "missing"
+    if "Walden" in src or "estimate" in src:
+        return "estimate"
+    if src.startswith("entered by user"):
+        return "entered by you"
+    return "measured"
+
+
+def fusion_data_panel(lib: Library) -> None:
+    """Fusion data of every neutral species: status overview, bulk lookup, review and apply."""
+    from osnades import fusion
+
+    neutral = [s for s in lib.all() if s.charge == 0]
+    if not neutral:
+        st.info("No neutral species in the library yet.")
+        return
+    status = {s.name: fusion_status(s) for s in neutral}
+    counts = pd.Series(status).value_counts()
+    cols = st.columns(4)
+    for c, k in zip(cols, ["measured", "entered by you", "estimate", "missing"]):
+        c.metric(k.capitalize(), int(counts.get(k, 0)))
+    st.dataframe(pd.DataFrame([{
+        "species": s.name, "status": status[s.name],
+        "ΔH_fus (kJ/mol)": round(s.dh_fus / 1000, 2) if s.dh_fus else None, "T_m (K)": s.t_fus,
+        "source": s.fusion_source or (s.notes if s.dh_fus else "")} for s in neutral]),
+        hide_index=True, use_container_width=True,
+        column_config={"source": st.column_config.TextColumn(width="large")})
+
+    st.markdown("**Search published data** – Cheméo and the NIST WebBook, matched by structure (InChIKey). "
+                "Ions are skipped; salts are handled as their ions on the eutectic page.")
+    scope = st.radio("Species to search", ["Missing", "Missing + estimates", "All (re-check everything)"],
+                     horizontal=True, key="fus_scope",
+                     help="Values you entered yourself are only replaced if you tick them below.")
+    want = {"Missing": {"missing"}, "Missing + estimates": {"missing", "estimate"}}.get(
+        scope, {"missing", "estimate", "measured", "entered by you"})
+    targets = [s.name for s in neutral if status[s.name] in want]
+    if st.button(f"Search {len(targets)} species", type="primary", disabled=not targets, key="fus_scan_btn"):
+        bar, found = st.progress(0.0), {}
+        for i, n in enumerate(targets):
+            bar.progress(i / len(targets), text=f"{n} ({i + 1}/{len(targets)})")
+            sp = lib.get(n)
+            try:
+                found[n] = (fusion.choose(fusion.lookup(sp.smiles, n), n), None)
+            except Exception as exc:  # noqa: BLE001
+                found[n] = (None, str(exc))
+        bar.empty()
+        st.session_state["fus_scan"] = found
+    if not targets:
+        st.success("Nothing to search in this category.")
+
+    found = st.session_state.get("fus_scan")
+    if not found:
+        return
+    rows = []
+    for n, (rec, err) in found.items():
+        if not lib.has(n):
+            continue
+        sp = lib.get(n)
+        cur = fusion_status(sp)
+        if rec is None:
+            rows.append({"apply": False, "species": n, "current": cur,
+                         "ΔH now": sp.dh_fus and round(sp.dh_fus / 1000, 2), "T_m now": sp.t_fus,
+                         "ΔH new": None, "T_m new": None, "kind": "error" if err else "nothing found",
+                         "source": err or ""})
+            continue
+        same = sp.dh_fus and sp.t_fus and abs(sp.dh_fus - rec.dh_fus) < 1 and abs(sp.t_fus - rec.t_fus) < 0.01
+        kind = "estimate" if rec.estimated else ("check isomer" if rec.needs_check else "measured")
+        default = not same and (cur == "missing" or (cur == "estimate" and not rec.estimated))
+        rows.append({"apply": bool(default), "species": n, "current": "unchanged" if same else cur,
+                     "ΔH now": sp.dh_fus and round(sp.dh_fus / 1000, 2), "T_m now": sp.t_fus,
+                     "ΔH new": round(rec.dh_fus / 1000, 2), "T_m new": rec.t_fus, "kind": kind, "source": rec.note})
+    if not rows:
+        return
+    st.markdown("**Results** – ticked rows will be saved. Defaults: fill missing values and replace estimates "
+                "by measured ones; other rows are left for you to decide.")
+    edited = st.data_editor(pd.DataFrame(rows), hide_index=True, use_container_width=True, key="fus_scan_editor",
+                            disabled=[c for c in rows[0] if c != "apply"],
+                            column_config={"apply": st.column_config.CheckboxColumn("save"),
+                                           "source": st.column_config.TextColumn(width="large")})
+    picked = [r for r in edited.to_dict("records") if r["apply"] and found[r["species"]][0] is not None]
+    a, b = st.columns([1, 3])
+    if a.button(f"Save {len(picked)} selected", type="primary", disabled=not picked, key="fus_apply"):
+        for r in picked:
+            rec = found[r["species"]][0]
+            lib.update(r["species"], dh_fus=rec.dh_fus, t_fus=rec.t_fus, fusion_source=rec.note)
+        st.session_state.pop("fus_scan", None)
+        st.toast(f"Saved fusion data for {len(picked)} species")
+        st.rerun()
+    if b.button("Discard results", key="fus_discard"):
+        st.session_state.pop("fus_scan", None)
+        st.rerun()
+
+
 def page_library():
     st.title("Compound library")
     lib = library()
     all_sp = lib.all()
 
-    tab_list, tab_add, tab_import, tab_sigma = st.tabs(["Species", "Add with ORCA", "Import .orcacosmo", "σ-profiles"])
+    tab_list, tab_fus, tab_add, tab_import, tab_sigma = st.tabs(
+        ["Species", "Fusion data", "Add with ORCA", "Import .orcacosmo", "σ-profiles"])
+
+    with tab_fus:
+        fusion_data_panel(lib)
 
     with tab_list:
         if not all_sp:
@@ -224,19 +324,9 @@ def page_library():
             )
             st.dataframe(df, hide_index=True, use_container_width=True)
             my_solvents_panel(lib)
-            missing = [s.name for s in all_sp if s.charge == 0 and not (s.dh_fus and s.t_fus)]
-            if missing and st.button(f"Look up missing fusion data ({len(missing)} species)", key="fus_all",
-                                     help="Fetches measured ΔH_fus / T_m for every neutral species that has none."):
-                bar, msgs = st.progress(0.0), []
-                for i, n in enumerate(missing):
-                    bar.progress(i / len(missing), text=n)
-                    lib.lookup_fusion(n, log=msgs.append)
-                bar.empty()
-                st.session_state["fus_all_log"] = msgs
-                st.rerun()
-            if st.session_state.get("fus_all_log"):
-                with st.expander("Fusion-data lookup results", expanded=True):
-                    st.text("\n".join(st.session_state.pop("fus_all_log")))
+            n_miss = sum(1 for s in all_sp if s.charge == 0 and not (s.dh_fus and s.t_fus))
+            if n_miss:
+                st.info(f"{n_miss} neutral species have no fusion data – use the **Fusion data** tab to look it up.")
             name = st.selectbox("Inspect species", [s.name for s in all_sp])
             sp = lib.get(name)
             c1, c2 = st.columns([1, 1])

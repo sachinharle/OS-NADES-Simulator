@@ -185,3 +185,19 @@ def test_fusion_page_parsing_and_choice():
     assert "verify" not in fusion.best(un).note and "no stereo" in fusion.best(un).note
     iso = fusion.parse_page(page, "https://x/cid/1", match="isomer")
     assert "verify" in fusion.best(iso).note
+
+
+def test_nist_page_parsing():
+    from osnades import fusion
+
+    page = ('<h1>Malic acid</h1><table aria-label="One dimensional data"><tr class="exp"><td>T<sub>fus</sub></td>'
+            '<td>400.75</td><td>K</td><td>N/A</td><td><a href="#ref-1">Wilhoit and Shiao, 1964</a></td><td></td></tr>'
+            '</table><table aria-label="Enthalpy of phase transition"><tr class="exp"><td>33.522</td><td>402.</td>'
+            '<td>crystaline, I</td><td>liquid</td><td><a href="#ref-2">Ceolin, Szwarc, et al., 1990</a></td>'
+            '<td>Stable form I.</td></tr><tr class="exp"><td>1.300</td><td>393.2</td><td>crystaline, II</td>'
+            '<td>crystaline, I</td><td><a href="#ref-2">Ceolin, Szwarc, et al., 1990</a></td><td></td></tr></table>')
+    recs = fusion.parse_nist_page(page, "https://nist/x")
+    assert len(recs) == 2  # solid–solid transition ignored
+    melt = next(r for r in recs if r.dh_fus)
+    assert melt.dh_fus == 33522 and melt.t_fus == 402 and "Ceolin" in melt.source and melt.via == "NIST WebBook"
+    assert fusion.best(recs).dh_fus == 33522
