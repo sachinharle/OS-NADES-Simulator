@@ -409,7 +409,7 @@
     "dcp_fus": null,
     "dh_fus": 34300.0,
     "formula": "C9H8O3",
-    "fusion_source": "Fusion data via Chem\u00e9o: Measurement and Correlation of the Solubility of p-Coumaric Acid in Nine Pure and Water + Ethanol Mixed Solvents at Temperatures from 293.15 to 333.15 K (doi:10.1021/acs.jced.6b00361); value belongs to the Chem\u00e9o entry 'p-Coumaric acid (CAS 7400-08-0)' (stereo not matched) \u2013 verify",
+    "fusion_source": "doi:10.1021/acs.jced.6b00361 \u2013 Measurement and Correlation of the Solubility of p-Coumaric Acid in Nine Pure and Water + Ethanol Mixed Solvents at Temperatures from 293.15 to 333.15 K; database entry 'p-Coumaric acid (CAS 7400-08-0)' gives no stereo information (via Chem\u00e9o)",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 164.15999999999997,
     "multiplicity": 1,

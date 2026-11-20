@@ -171,7 +171,7 @@ def test_fusion_page_parsing_and_choice():
         row("T<sub>fus</sub>", "489.00 ± 5.00", "K", "NIST", "nist-webbook"),
         row("T<sub>fus</sub>", "213.15", "K", "Some dataset", "ds"),
     ]) + "</table>"
-    recs = fusion.parse_page(page, "https://x/cid/1", exact=True)
+    recs = fusion.parse_page(page, "https://x/cid/1", match="exact")
     assert {r.source for r in recs} == {"Paper A", "NIST", "Some dataset"}  # calculated + range rows dropped
     a = next(r for r in recs if r.source == "Paper A")
     assert a.dh_fus == 27420 and a.t_fus == 492.35 and a.doi == "10.1016/j.jct.2013.02.013"
@@ -180,3 +180,8 @@ def test_fusion_page_parsing_and_choice():
     assert pick.source == "Paper A" and not pick.estimated  # 2 sources near 490 K beat the lone 213 K value
     est = fusion.best([r for r in recs if r.source == "NIST"])
     assert est.estimated and abs(est.dh_fus - 56.5 * 489.0) < 1e-6 and "Walden" in est.note
+    # an entry without stereo information is the same compound: no "verify" warning
+    un = fusion.parse_page(page, "https://x/cid/1", match="unspecified")
+    assert "verify" not in fusion.best(un).note and "no stereo" in fusion.best(un).note
+    iso = fusion.parse_page(page, "https://x/cid/1", match="isomer")
+    assert "verify" in fusion.best(iso).note

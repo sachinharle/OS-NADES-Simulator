@@ -146,9 +146,9 @@ def fusion_caption(sp) -> None:
         st.warning(f"ΔH_fus of {sp.name} is an estimate (Walden's rule) – replace it with a measured value if you can. "
                    f"{src}")
     elif "verify" in src:
-        st.caption(f"⚠️ {src}")
+        st.caption(f"⚠️ Fusion data: {src}")
     elif src:
-        st.caption(src)
+        st.caption(f"Fusion data: {src}")
 
 
 def fusion_editor(lib: Library, sp) -> None:
@@ -196,7 +196,7 @@ def fusion_editor(lib: Library, sp) -> None:
     r = opts[i]
     if not r.dh_fus:
         r = fusion.FusionRecord(dh_fus=fusion.WALDEN_DS * r.t_fus, t_fus=r.t_fus, source=r.source, compound=r.compound,
-                                url=r.url, doi=r.doi, exact=r.exact, estimated=True)
+                                url=r.url, doi=r.doi, match=r.match, estimated=True)
         st.caption(f"This reference gives only T_m; ΔH_fus would be estimated as {r.dh_fus / 1000:.1f} kJ/mol (Walden).")
     if st.button("Use these values", key=f"fus_use_{name}", type="primary"):
         lib.update(name, dh_fus=r.dh_fus or sp.dh_fus, t_fus=r.t_fus or sp.t_fus, fusion_source=r.note)

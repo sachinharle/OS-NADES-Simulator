@@ -28,8 +28,21 @@ class FusionRecord:
     compound: str  # Cheméo compound name the value belongs to
     url: str
     doi: str | None = None
-    exact: bool = True  # compound matched the full InChIKey (stereo included)
+    # How the database entry matches the query structure (by InChIKey):
+    #   "exact"       same molecule, stereo included
+    #   "unspecified" same molecule; the database entry gives no stereo (cis/trans, R/S) information
+    #   "isomer"      same skeleton but a different stereoisomer – check before use
+    #   "name"        found by name only (no structure to compare)
+    match: str = "exact"
     estimated: bool = False  # ΔH_fus from Walden's rule
+
+    @property
+    def exact(self) -> bool:
+        return self.match == "exact"
+
+    @property
+    def needs_check(self) -> bool:
+        return self.match in ("isomer", "name")
 
     @property
     def label(self) -> str:
@@ -39,18 +52,23 @@ class FusionRecord:
         if self.t_fus:
             parts.append(f"T_m {self.t_fus:.2f} K")
         ref = f"doi:{self.doi}" if self.doi else self.source
-        return f"{' · '.join(parts)} — {ref}" + ("" if self.exact else f" [entry: {self.compound}]")
+        tag = {"unspecified": " [entry without stereo info]", "isomer": f" [other isomer: {self.compound}]",
+               "name": f" [matched by name: {self.compound}]"}.get(self.match, "")
+        return f"{' · '.join(parts)} — {ref}{tag}"
 
     @property
     def note(self) -> str:
         """Text stored with the species so the origin of the numbers stays visible."""
-        ref = f"{self.source} (doi:{self.doi})" if self.doi else self.source
-        s = f"Fusion data via Cheméo: {ref}"
+        s = f"doi:{self.doi} – {self.source}" if self.doi else self.source
         if self.estimated:
-            s += f"; ΔH_fus estimated from T_m with Walden's rule (ΔS_fus = {WALDEN_DS} J/mol/K)"
-        if not self.exact:
-            s += f"; value belongs to the Cheméo entry '{self.compound}' (stereo not matched) – verify"
-        return s
+            s += f"; ΔH_fus estimated from T_m (Walden's rule, ΔS_fus = {WALDEN_DS} J/mol/K)"
+        if self.match == "unspecified":
+            s += f"; database entry '{self.compound}' gives no stereo information"
+        elif self.match == "isomer":
+            s += f"; value is for '{self.compound}', a different stereoisomer – verify"
+        elif self.match == "name":
+            s += f"; matched '{self.compound}' by name only – verify"
+        return s + " (via Cheméo)"
 
 
 def _ssl_context():
@@ -83,7 +101,7 @@ def _text(s: str) -> str:
     return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", s))).strip()
 
 
-def parse_page(page: str, url: str = "", exact: bool = True) -> list[FusionRecord]:
+def parse_page(page: str, url: str = "", match: str = "exact") -> list[FusionRecord]:
     """Experimental ΔH_fus / T_fus rows of one Cheméo compound page, paired by reference."""
     m = re.search(r"<h1[^>]*>(.*?)</h1>", page, re.S)
     compound = _text(m.group(1)) if m else url.rsplit("/", 1)[-1]
@@ -111,7 +129,7 @@ def parse_page(page: str, url: str = "", exact: bool = True) -> list[FusionRecor
             r["doi"] = ref_id[4:].replace("_", "/", 1)
         r.setdefault(key, v)
     return [FusionRecord(dh_fus=r.get("dh"), t_fus=r.get("tm"), source=r["title"], compound=compound,
-                         url=url, doi=r["doi"], exact=exact)
+                         url=url, doi=r["doi"], match=match)
             for r in rows.values() if r.get("dh") or r.get("tm")]
 
 
@@ -128,7 +146,7 @@ def lookup(smiles: str | None = None, name: str | None = None, timeout: float = 
     """All experimental fusion records for a compound (empty list if none). Raises on network errors.
 
     Cheméo's search also returns similar compounds, so each hit's structure is checked: same InChIKey
-    = exact match; same skeleton (first InChIKey block) = stereoisomer / unspecified-stereo entry."""
+    = exact match; same skeleton (first InChIKey block) = stereoisomer or an entry without stereo information."""
     key = _inchikey(smiles) if smiles else None
     hits = _search(key, timeout) if key else []
     if not hits and name:
@@ -136,19 +154,21 @@ def lookup(smiles: str | None = None, name: str | None = None, timeout: float = 
     recs: list[FusionRecord] = []
     for path in hits[:max_pages]:
         url = BASE + path
-        exact = None
+        match = "name"
         if key:
             try:
                 k = _inchikey(molblock=_get(url + ".2dmol", timeout))
             except Exception:  # noqa: BLE001
                 k = None
+            if not k or k.split("-")[0] != key.split("-")[0]:
+                continue  # a different compound
             if k == key:
-                exact = True
-            elif k and k.split("-")[0] == key.split("-")[0]:
-                exact = False
+                match = "exact"
+            elif k.split("-")[1] == "UHFFFAOYSA":  # standard InChIKey block for "no stereo layer"
+                match = "unspecified"
             else:
-                continue
-        recs += parse_page(_get(url, timeout), url, exact if exact is not None else False)
+                match = "isomer"
+        recs += parse_page(_get(url, timeout), url, match)
     return recs
 
 
@@ -167,8 +187,8 @@ def best(records: list[FusionRecord], estimate: bool = True) -> FusionRecord | N
     sources wins (data collections sometimes hold values of a glass transition or another polymorph).
     Within it, a reference reporting both ΔH_fus and T_m is preferred (DSC measurement); if there is
     none, any paired reference; otherwise the group's median T_m with a Walden's-rule estimate."""
-    for exact in (True, False):
-        pool = [r for r in records if r.exact == exact]
+    for match in ("exact", "unspecified", "isomer", "name"):
+        pool = [r for r in records if r.match == match]
         groups = _clusters(pool)
         if not groups:
             continue
@@ -183,7 +203,7 @@ def best(records: list[FusionRecord], estimate: bool = True) -> FusionRecord | N
         if estimate:
             r = min(g, key=lambda r: abs(r.t_fus - med))
             return FusionRecord(dh_fus=WALDEN_DS * r.t_fus, t_fus=r.t_fus, source=r.source, compound=r.compound,
-                                url=r.url, doi=r.doi, exact=r.exact, estimated=True)
+                                url=r.url, doi=r.doi, match=r.match, estimated=True)
     return None
 
 
