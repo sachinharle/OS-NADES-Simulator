@@ -135,9 +135,11 @@
   "citric acid": {
     "charge": 0,
     "conformers": [
-      "citric_acid/conf0.orcacosmo"
+      "citric_acid/conf0.orcacosmo",
+      "citric_acid/conf1.orcacosmo",
+      "citric_acid/conf2.orcacosmo"
     ],
-    "created": "2026-11-19 07:52",
+    "created": "2026-11-20 12:13",
     "dcp_fus": null,
     "dh_fus": null,
     "formula": "C6H8O7",
@@ -232,7 +234,7 @@
     "conformers": [
       "glucose/conf0.orcacosmo"
     ],
-    "created": "2026-11-19 07:56",
+    "created": "2026-11-20 12:07",
     "dcp_fus": null,
     "dh_fus": null,
     "formula": "C6H12O6",
@@ -242,7 +244,7 @@
     "name": "glucose",
     "notes": "",
     "optimizer": "xtb",
-    "smiles": "OC[C@H]1OC(O)[C@H](O)[C@@H](O)[C@@H]1O",
+    "smiles": "OC[C@H]1O[C@H](O)[C@H](O)[C@@H](O)[C@@H]1O",
     "source": "orca",
     "t_fus": null
   },

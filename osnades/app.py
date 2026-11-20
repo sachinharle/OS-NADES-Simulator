@@ -231,12 +231,17 @@ def page_library():
                     st.error("Multi-fragment SMILES: add each ion separately (e.g. choline and chloride).")
             except Exception as exc:  # noqa: BLE001
                 st.error(str(exc))
+        overwrite = st.checkbox("Recompute if this species already exists (replaces its σ-surfaces)", key="add_ow")
         if st.button("Queue ORCA calculation", type="primary", disabled=not name or not (smiles or xyz)):
-            if lib.has(name):
-                st.error(f"{name} already exists")
+            clash = lib.clash(name)
+            if clash:
+                st.error(f"“{name}” would overwrite the files of existing species “{clash}” (names differ only "
+                         f"in case/spaces). Use the name “{clash}” with the recompute option instead.")
+            elif lib.has(name) and not overwrite:
+                st.error(f"{name} already exists – tick the recompute option to replace it.")
             else:
                 queue_compute(name, smiles=smiles, xyz=xyz, charge=charge, multiplicity=mult,
-                              n_conformers=int(nconf), optimizer=optimizer, **meta)
+                              n_conformers=int(nconf), optimizer=optimizer, overwrite=overwrite, **meta)
                 st.success(f"Queued {name}. Track progress on the Jobs page.")
 
     with tab_import:
@@ -577,7 +582,7 @@ def page_nades():
                 fig2 = go.Figure()
                 tot = None
                 for s, f in zip(sysm.species, sysm.fractions):
-                    sig, area = sigma_profile(lib.paths(s)[0])
+                    sig, area = sigma_profile(engine().conformer(s))
                     tot = area * f if tot is None else tot + area * f
                 fig2.add_trace(go.Scatter(x=sig, y=tot, mode="lines", name="mixture σ-profile", fill="tozeroy"))
                 fig2.update_layout(xaxis_title="σ (e/Å²)", yaxis_title="x-weighted p(σ) (Å²)", xaxis_range=[-0.03, 0.03], height=350)

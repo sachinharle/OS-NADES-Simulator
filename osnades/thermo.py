@@ -122,6 +122,17 @@ def ideal_rhs(T: float, dh_fus: float, t_fus: float, dcp_fus: float = 0.0) -> fl
 
 
 # ---------------------------------------------------------------------------- engine
+@lru_cache(maxsize=512)
+def _energy_cached(path: str, mtime: float) -> float:
+    from opencosmorspy.input_parsers import SigmaProfileParser
+
+    return float(SigmaProfileParser(path)["energy_tot"])
+
+
+def _conformer_energy(path: Path) -> float:
+    return _energy_cached(str(path), path.stat().st_mtime)
+
+
 class Engine:
     """openCOSMO-RS engine with a cache of loaded σ-surfaces per species set."""
 
@@ -141,11 +152,19 @@ class Engine:
         if key not in self._cache:
             crs = COSMORS(par=getattr(P, self.parameterization)())
             for s in species:
-                crs.add_molecule([str(p) for p in self.library.paths(s)])
+                crs.add_molecule([str(self.conformer(s))])
             self._cache[key] = crs
             if len(self._cache) > 64:
                 self._cache.pop(next(iter(self._cache)))
         return self._cache[key]
+
+    def conformer(self, species: str) -> Path:
+        """σ-surface used for a species. openCOSMO-RS 24a handles one conformer per molecule, so for
+        multi-conformer species the lowest-energy one (ORCA total energy in the conductor) is used."""
+        paths = self.library.paths(species)
+        if len(paths) == 1:
+            return paths[0]
+        return min(paths, key=_conformer_energy)
 
     # ------------------------------------------------------------- activity coeffs
     def ln_gamma(self, species: list[str], X: np.ndarray, T: float | np.ndarray,

@@ -110,3 +110,26 @@ def test_eutectic_phase_diagram(engine):
     # ideal curve: closed form 1/T = 1/Tm - R ln x / ΔH
     assert _t_from_lna(np.log(0.5), para) == pytest.approx(1 / (1 / 443.6 - 8.314462618 * np.log(0.5) / 27100.0))
     assert pd_.liquid_window(260.0) is None
+
+
+def test_library_folder_clash(tmp_path):
+    lib = Library(Settings(home=tmp_path, orca_home=None))
+    lib.import_orcacosmo("ethanol", [FIX / "ethanol.orcacosmo"], smiles="CCO")
+    assert lib.clash("Ethanol") == "ethanol" and lib.clash("ethanol") is None
+    with pytest.raises(ValueError, match="storage folder"):
+        lib.import_orcacosmo("Ethanol", [FIX / "water.orcacosmo"])
+    assert lib.paths("ethanol")[0].read_bytes() == (FIX / "ethanol.orcacosmo").read_bytes()
+    # removing a species never deletes files another entry still uses
+    lib.put(lib.get("ethanol").__class__(**{**lib.get("ethanol").__dict__, "name": "ETHANOL"}))
+    lib.remove("ETHANOL")
+    assert lib.paths("ethanol")[0].exists()
+
+
+def test_multi_conformer_species_uses_lowest_energy(engine):
+    lib = engine.library
+    lib.import_orcacosmo("water2", [FIX / "ethanol.orcacosmo", FIX / "water.orcacosmo"], smiles="O")
+    e = {p.name: descriptors(p)["energy_total_kJmol"] for p in lib.paths("water2")}
+    best = engine.conformer("water2")
+    assert e[best.name] == min(e.values())
+    assert np.isfinite(engine.ln_gamma(["water2", "ethanol"], np.array([[0.5, 0.5]]), 298.15)).all()
+    lib.remove("water2")

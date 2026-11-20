@@ -89,6 +89,29 @@ class Library:
     def has(self, name: str) -> bool:
         return name in self._load()
 
+    @staticmethod
+    def _folder_key(name: str) -> str:
+        # macOS/Windows file systems are case-insensitive: "Glucose/" and "glucose/" are the same folder
+        return slugify(name).lower()
+
+    def clash(self, name: str) -> str | None:
+        """Existing *other* species whose storage folder would collide with ``name`` (case-insensitive)."""
+        key = self._folder_key(name)
+        for other, v in self._load().items():
+            if other == name:
+                continue
+            folders = {Path(c).parts[0].lower() for c in v.get("conformers", []) if Path(c).parts}
+            if self._folder_key(other) == key or key in folders:
+                return other
+        return None
+
+    def _check_new_name(self, name: str) -> None:
+        other = self.clash(name)
+        if other:
+            raise ValueError(f"{name!r} would share the storage folder of existing species {other!r} "
+                             f"(names differ only in case/spaces/punctuation). Use {other!r} with overwrite, "
+                             "or choose a distinct name.")
+
     def put(self, sp: Species) -> None:
         with _LOCK:
             data = self._load()
@@ -109,7 +132,9 @@ class Library:
             self._save(data)
         if sp:
             folder = self.dir / slugify(name)
-            if folder.is_dir():
+            # never delete files another species still uses
+            used = {Path(c).parts[0].lower() for v in data.values() for c in v.get("conformers", [])}
+            if folder.is_dir() and folder.name.lower() not in used:
                 shutil.rmtree(folder)
 
     def paths(self, name: str) -> list[Path]:
@@ -123,6 +148,7 @@ class Library:
 
         if self.has(name) and not overwrite:
             raise ValueError(f"{name!r} already exists")
+        self._check_new_name(name)
         folder = self.dir / slugify(name)
         folder.mkdir(parents=True, exist_ok=True)
         rel = []
@@ -168,6 +194,7 @@ class Library:
         """Generate geometry → (optional) xTB optimisation → ORCA COSMO-RS → add to library."""
         if self.has(name) and not overwrite:
             raise ValueError(f"{name!r} already exists in the library")
+        self._check_new_name(name)
         if not smiles and not xyz:
             raise ValueError("Provide a SMILES string or an XYZ geometry")
 
