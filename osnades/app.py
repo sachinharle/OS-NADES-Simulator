@@ -23,7 +23,7 @@ from osnades.config import load_settings
 from osnades.jobs import JobManager
 from osnades.library import Library
 from osnades.sigma import descriptors, sigma_profile
-from osnades.thermo import Engine, SolventSystem, presets, preset_systems
+from osnades.thermo import Engine, SolventSystem, ideal_rhs, presets, preset_systems
 
 st.set_page_config(page_title="OS-NADES Simulator", page_icon="⚗️", layout="wide")
 
@@ -466,6 +466,82 @@ def page_curves():
 
 
 # --------------------------------------------------------------------------- NADES designer
+def nades_solute_panel(sysm: SolventSystem, T: float, lib: Library) -> None:
+    """Ideal vs openCOSMO-RS solubility of one solute in the designed mixture."""
+    st.subheader("Solute in this mixture")
+    cands = [s for s in lib.all() if s.charge == 0 and s.name not in sysm.components]
+    if not cands:
+        st.info("No neutral species outside this mixture are in the library.")
+        return
+    c1, c2, c3, c4 = st.columns(4)
+    names = [s.name for s in cands]
+    solute = c1.selectbox("Solute", names, index=next((i for i, s in enumerate(cands) if s.dh_fus), 0), key="nd_sol")
+    sp = lib.get(solute)
+    dh = c2.number_input("ΔH_fus (kJ/mol)", value=float(sp.dh_fus / 1000) if sp.dh_fus else 25.0,
+                         min_value=0.1, key=f"nd_dh_{solute}")
+    tm = c3.number_input("T_m (K)", value=float(sp.t_fus or 400.0), min_value=1.0, key=f"nd_tm_{solute}")
+    dcp = c4.number_input("ΔCp_fus (J/mol/K)", value=float(sp.dcp_fus or 0.0), key=f"nd_dcp_{solute}")
+    if not sp.dh_fus:
+        st.caption(f"No fusion data stored for {solute}; the defaults above are placeholders – enter literature values.")
+
+    x_id = float(np.exp(ideal_rhs(T, dh * 1000, tm, dcp)))
+    mw = sp.molar_mass or 0.0
+    mw_solv = sum(f * (lib.get(s).molar_mass or 0.0) for s, f in zip(sysm.species, sysm.fractions))
+    g_kg_id = 1000 * x_id * mw / ((1 - x_id) * mw_solv) if mw and mw_solv and x_id < 1 else float("nan")
+    fus = dict(dh_fus=dh * 1000, t_fus=tm, dcp_fus=dcp)
+    try:
+        res = engine().solubility(solute, sysm, T, method="iterative", **fus)
+        inf = engine().solubility(solute, sysm, T, method="infinite_dilution", **fus)
+    except Exception as e:  # noqa: BLE001
+        st.error(f"Solubility calculation failed: {e}")
+        return
+
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("x ideal", f"{x_id:.4g}", help="exp[−ΔH/R(1/T−1/T_m) + ΔCp/R(T_m/T−1−ln T_m/T)]; "
+              "solvent-independent (γ = 1)")
+    m2.metric("x predicted", f"{res.x:.4g}", f"{res.x / x_id:.2f}× ideal", delta_color="off")
+    m3.metric("ln γ at saturation", f"{res.ln_gamma:.3f}", help="Pure-liquid solute reference. ln γ < 0 → "
+              "solubility above ideal")
+    m4.metric("g / kg solvent", f"{res.g_per_kg:.4g}", f"ideal {g_kg_id:.4g}", delta_color="off")
+
+    tbl = pd.DataFrame([
+        {"case": "ideal (γ = 1)", "x": x_id, "ln_gamma": 0.0, "g_per_kg": g_kg_id, "x / x_ideal": 1.0},
+        {"case": "openCOSMO-RS iterative", "x": res.x, "ln_gamma": res.ln_gamma, "g_per_kg": res.g_per_kg,
+         "x / x_ideal": res.x / x_id},
+        {"case": "openCOSMO-RS infinite dilution", "x": inf.x, "ln_gamma": inf.ln_gamma_inf, "g_per_kg": inf.g_per_kg,
+         "x / x_ideal": inf.x / x_id},
+    ])
+    st.dataframe(tbl.style.format({"x": "{:.4e}", "ln_gamma": "{:.3f}", "g_per_kg": "{:.4g}", "x / x_ideal": "{:.3f}"}),
+                 hide_index=True, use_container_width=True)
+    if res.note:
+        st.warning(res.note)
+
+    with st.expander("Ideal vs predicted over a temperature range"):
+        a, b, n = st.columns(3)
+        t0 = a.number_input("from (K)", value=283.15, key="nd_t0")
+        t1 = b.number_input("to (K)", value=min(353.15, tm - 1), key="nd_t1")
+        nt = int(n.number_input("points", 2, 30, 8, key="nd_nt"))
+        if st.button("Compute curve", key="nd_curve"):
+            temps = np.linspace(t0, t1, nt)
+            df = engine().solubility_curve(solute, sysm, temps, method="iterative", **fus)
+            st.session_state.nd_curve_df = (solute, sysm.name, df)
+        cur = st.session_state.get("nd_curve_df")
+        if cur and cur[0] == solute and cur[1] == sysm.name:
+            df = cur[2]
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=df["T"] - 273.15, y=df["x_ideal"], name="ideal (γ = 1)",
+                                     line=dict(color="#5f5e58", dash="dash")))
+            fig.add_trace(go.Scatter(x=df["T"] - 273.15, y=df["x"], name=f"openCOSMO-RS in {sysm.name}",
+                                     mode="lines+markers", line=dict(color="#2a78d6", width=2)))
+            fig.update_layout(xaxis_title="Temperature (°C)", yaxis_title="mole fraction x", yaxis_type="log",
+                              height=380, legend=dict(orientation="h", yanchor="top", y=-0.25, x=0))
+            st.plotly_chart(fig, use_container_width=True)
+            st.download_button("Download CSV", df.to_csv(index=False).encode(),
+                               file_name=f"{solute}_in_{sysm.name}.csv".replace(" ", "_"), key="nd_dl")
+    st.caption("x counts every mixture species individually (ions separately). The ideal mole fraction depends only "
+               "on the solute's fusion properties and T; x/x_ideal = 1/γ shows how much the NADES helps (>1) or hurts (<1).")
+
+
 def page_nades():
     st.title("NADES designer")
     lib = library()
@@ -506,6 +582,7 @@ def page_nades():
                 fig2.add_trace(go.Scatter(x=sig, y=tot, mode="lines", name="mixture σ-profile", fill="tozeroy"))
                 fig2.update_layout(xaxis_title="σ (e/Å²)", yaxis_title="x-weighted p(σ) (Å²)", xaxis_range=[-0.03, 0.03], height=350)
                 st.plotly_chart(fig2, use_container_width=True)
+                nades_solute_panel(sysm, T, lib)
     with t2:
         neutral = [s.name for s in lib.all() if s.charge == 0]
         a, b, c = st.columns(3)

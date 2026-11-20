@@ -30,6 +30,8 @@ SMILES / XYZ ──RDKit 3D──► GFN2-xTB opt (ORCA) ──► ORCA !COSMORS
   * ChCl-based (Reline, Ethaline, Glyceline, organic acids, glucose), betaine-based, and
     hydrophobic (menthol/thymol/decanoic acid) systems.
   * A custom HBA:HBD:… builder with an electroneutrality check.
+  * Pick a solute to compare its ideal mole fraction (γ = 1, from ΔH_fus/T_m/ΔCp only) with the
+    openCOSMO-RS solubility in the designed mixture (x/x_ideal, ln γ, g/kg, and a T scan).
   * Per-species activity coefficients (residual and combinatorial), the mixture σ-profile,
     and binary Gᴱ/RT curves.
 * **ORCA backends**:
