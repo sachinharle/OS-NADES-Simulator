@@ -198,6 +198,44 @@ def cmd_binary(a):
     return 0
 
 
+def _design_phase_diagram(a, lib, res) -> int:
+    """Phase diagram of the best solvent (binary or ternary) with its melting point."""
+    from . import designer as D
+    from .eutectic import matplotlib_png, ternary_png
+
+    best = res.best.iloc[0]
+    z = np.array([best[f"z_{c.name}"] for c in res.components])
+    comps, zc = D.phase_components(res.components, z)
+    print()
+    print(f"Phase diagram of {' + '.join(c.name for c in comps)} (solute-free solvent):")
+    try:
+        sp = D.solvent_phase_diagram(Engine(lib, a.parameterization), comps, zc, step=a.pd_step)
+    except ValueError as exc:
+        print(f"  skipped: {exc}")
+        return 0
+    T_cold = float(res.temps[0])
+    print(f"  best solvent {best['name']} melts at {sp.melt_text()}")
+    print(f"  eutectic: {sp.eutectic_text()}")
+    if sp.ternary:
+        print(f"  liquid at {T_cold - 273.15:.1f} °C: {sp.diagram.liquid_fraction(T_cold):.0%} of the composition triangle")
+    else:
+        w = sp.diagram.liquid_window(T_cold)
+        print(f"  liquid at {T_cold - 273.15:.1f} °C for x_{sp.names[0]} = " + (f"{w[0]:.3f}–{w[1]:.3f}" if w else "none"))
+    liquid = sp.liquid_at(T_cold)
+    if liquid is not None:
+        print("  → liquid over the whole range" if liquid else
+              f"  → starts to crystallise above {a.tmin:g} °C (the coldest temperature of the range)")
+    for n in sp.diagram.notes:
+        print(f"  note: {n}")
+    if a.out:
+        stem = f"{a.out}_phase"
+        sp.diagram.data.to_csv(f"{stem}.csv", index=False)
+        png = ternary_png(sp.diagram, T_cold) if sp.ternary else matplotlib_png(sp.diagram, T_cold)
+        Path(f"{stem}.png").write_bytes(png)
+        print(f"wrote {stem}.csv and {stem}.png")
+    return 0
+
+
 def cmd_design(a):
     """Find the component mole fractions of a multicomponent NADES that dissolve the most solute."""
     from . import designer as D
@@ -233,6 +271,10 @@ def cmd_design(a):
         res.best.to_csv(f"{a.out}_best.csv", index=False)
         res.screen.to_csv(f"{a.out}_screen.csv", index=False)
         print(f"wrote {a.out}_best.csv and {a.out}_screen.csv")
+    if a.phase_diagram:
+        rc = _design_phase_diagram(a, lib, res)
+        if rc:
+            return rc
     if a.save_as:
         lib.add_solvent(a.save_as, res.best_system(0).components, overwrite=True)
         print(f"saved the best composition as solvent {a.save_as!r}")
@@ -448,6 +490,9 @@ def main(argv=None):
                    help="do not require the solvent to be liquid over the range")
     q.add_argument("--dh-fus", type=float); q.add_argument("--t-fus", type=float)
     q.add_argument("--save-as", help="register the best composition as a solvent")
+    q.add_argument("--phase-diagram", action="store_true",
+                   help="also compute the solid–liquid diagram of the best solvent (binary or ternary)")
+    q.add_argument("--pd-step", type=float, default=0.1, help="composition grid step of the ternary diagram")
     q.add_argument("--parameterization", default="openCOSMORS24a"); q.add_argument("-o", "--out")
     q.set_defaults(fn=cmd_design)
 

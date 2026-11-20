@@ -424,3 +424,88 @@ class Designer:
 
 def ideal_curve(temps, dh_fus: float, t_fus: float, dcp_fus: float = 0.0) -> np.ndarray:
     return np.minimum(1.0, np.exp([ideal_rhs(float(T), dh_fus, t_fus, dcp_fus) for T in temps]))
+
+
+# --------------------------------------------------------------------------- phase diagram of the solvent
+@dataclass
+class SolventPhase:
+    """Solid–liquid phase diagram of a (solute-free) solvent with one composition of interest."""
+    names: list[str]
+    z: np.ndarray  # composition of interest (component mole fractions, same order as names)
+    diagram: object  # eutectic.PhaseDiagram (2 components) or eutectic.TernaryDiagram (3)
+    T_melt: float = float("nan")  # liquidus temperature of z (K)
+    T_melt_below: float = float("nan")  # set instead when the liquidus lies below the checked range
+
+    @property
+    def ternary(self) -> bool:
+        return len(self.names) == 3
+
+    def liquid_at(self, T: float) -> bool | None:
+        """Is z fully liquid at T? None if the liquidus could not be computed."""
+        if np.isfinite(self.T_melt):
+            return bool(self.T_melt < T)
+        if np.isfinite(self.T_melt_below):
+            return bool(self.T_melt_below <= T)
+        return None
+
+    def melt_text(self) -> str:
+        if np.isfinite(self.T_melt):
+            return f"{self.T_melt - 273.15:.1f} °C"
+        if np.isfinite(self.T_melt_below):
+            return f"< {self.T_melt_below - 273.15:.0f} °C"
+        return "—"
+
+    def eutectic_text(self) -> str:
+        from .eutectic import ratio_label
+
+        d = self.diagram
+        T = (f"{d.T_e - 273.15:.1f} °C" if np.isfinite(d.T_e) else
+             f"< {d.T_e_upper - 273.15:.0f} °C" if np.isfinite(d.T_e_upper) else "—")
+        if self.ternary:
+            comp = ratio_label(d.z_e) if np.all(np.isfinite(d.z_e)) else ""
+            return f"{T} at {':'.join(self.names)} = {comp}" if comp else T
+        return f"{T} at x_{self.names[0]} = {d.x_e:.3f}" if np.isfinite(d.x_e) else T
+
+
+def phase_components(components: list[DesignComponent], z: np.ndarray) -> tuple[list[DesignComponent], np.ndarray]:
+    """Components for the phase diagram: all of them when there are ≤ 3, else only those present in z."""
+    z = np.asarray(z, float)
+    if len(components) <= 3:
+        return list(components), z
+    keep = z > 1e-9
+    return [c for c, k in zip(components, keep) if k], z[keep]
+
+
+def solvent_phase_diagram(engine: Engine, components: list[DesignComponent], z, step: float = 0.1,
+                          progress=None) -> SolventPhase:
+    """Binary or ternary solid–liquid diagram of the solvent, plus the liquidus of composition z."""
+    from .eutectic import Component, EutecticSolver, TernarySolver
+
+    comps, zc = phase_components(components, z)
+    if len(comps) not in (2, 3):
+        raise ValueError(f"a phase diagram needs 2 or 3 components (the composition has {len(comps)})")
+    missing = [c.name for c in comps if not c.has_fusion]
+    if missing:
+        raise ValueError("fusion data (ΔH_fus, T_m) missing for " + ", ".join(missing))
+    ecs = [Component(c.name, c.species, float(c.dh_fus), float(c.t_fus), float(c.dcp_fus or 0.0),
+                     c.fusion_source) for c in comps]
+    out = SolventPhase([c.name for c in comps], zc, None)
+    if len(comps) == 3:
+        solver = TernarySolver(engine, ecs)
+        T_lo = max(173.15, 0.5 * min(c.t_fus for c in ecs))
+        out.diagram = solver.solve(step=step, T_lo=T_lo, progress=progress)
+        pt = solver.evaluate(zc[None, :], T_lo).iloc[0]
+        if np.isfinite(pt["T_liquidus"]):
+            out.T_melt = float(pt["T_liquidus"])
+        elif pt["below_range"]:
+            out.T_melt_below = float(pt["T_upper"])
+    else:
+        solver = EutecticSolver(engine, *ecs)
+        out.diagram = solver.solve(progress=progress)
+        T_lo = max(50.0, 0.3 * min(c.t_fus for c in ecs))
+        (tA, nA, bA), (tB, nB, bB) = (solver.liquidus(float(zc[0]), i, T_lo) for i in (0, 1))
+        if np.isfinite([tA, tB]).any():
+            out.T_melt = float(np.nanmax([tA, tB]))
+        elif "below" in (nA, nB):
+            out.T_melt_below = float(np.nanmax([bA, bB]))
+    return out

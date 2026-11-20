@@ -247,3 +247,21 @@ def test_ternary_liquidus(engine):
     assert np.allclose(res.z_e.sum(), 1) and np.all(res.z_e >= 0)
     assert res.T_e_ideal <= d["T_ideal"].min() + 0.5
     assert 0 <= res.liquid_fraction(300.0) <= 1
+
+
+def test_solvent_phase_diagram(engine):
+    """Phase diagram of a designed solvent: binary path, melting point of the chosen composition, and the
+    ternary path with a component absent from the composition."""
+    from osnades import designer as D
+
+    w = D.DesignComponent("water", {"water": 1.0}, 0.0, 1.0, 6009.5, 273.15)
+    e = D.DesignComponent("ethanol", {"ethanol": 1.0}, 0.0, 1.0, 4931.0, 159.0)
+    p = D.DesignComponent("paracetamol", {"paracetamol": 1.0}, 0.0, 1.0, 27100.0, 443.6)
+    sp = D.solvent_phase_diagram(engine, [w, e], [0.7, 0.3])
+    assert not sp.ternary and np.isfinite(sp.T_melt) and sp.T_melt < 273.15
+    assert sp.liquid_at(273.15) is True and sp.liquid_at(150.0) is False
+    assert sp.eutectic_text() and sp.melt_text().endswith("°C")
+    comps, zc = D.phase_components([w, e, p, w], np.array([0.5, 0.5, 0.0, 0.0]))
+    assert [c.name for c in comps] == ["water", "ethanol"] and np.allclose(zc, [0.5, 0.5])
+    with pytest.raises(ValueError):
+        D.solvent_phase_diagram(engine, [w, D.DesignComponent("ethanol", {"ethanol": 1.0})], [0.5, 0.5])

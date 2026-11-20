@@ -1581,11 +1581,10 @@ def wf_step_results(wf: dict, lib: Library) -> None:
 
 def wf_phase_diagram(wf: dict, res, z: np.ndarray) -> None:
     """Solid–liquid phase diagram of the solvent components (2 or 3) with the chosen composition marked."""
-    from osnades.eutectic import (Component, EutecticSolver, TernarySolver, plotly_figure, ratio_label,
-                                  ternary_cost, ternary_figure)
+    from osnades import designer as D
+    from osnades.eutectic import plotly_figure, ternary_cost, ternary_figure
 
-    comps = [c for c, zi in zip(res.components, z) if zi > 1e-9] if len(res.components) > 3 else res.components
-    zc = np.array([zi for zi in z if zi > 1e-9]) if len(res.components) > 3 else z
+    comps, zc = D.phase_components(res.components, z)
     if len(comps) not in (2, 3):
         st.info(f"The phase diagram needs 2 or 3 components; the best solvent has {len(comps)}. "
                 "Use the NADES designer page for any 2 or 3 of them.")
@@ -1600,74 +1599,49 @@ def wf_phase_diagram(wf: dict, res, z: np.ndarray) -> None:
                 f"eutectic, and where the chosen composition sits. Dotted line: {T_cold - 273.15:.0f} °C, the "
                 "coldest temperature of your range.")
     key = (tuple(names), tuple((c.dh_fus, c.t_fus, c.dcp_fus) for c in comps), tuple(np.round(zc, 4)))
-    ecs = [Component(c.name, c.species, float(c.dh_fus), float(c.t_fus), float(c.dcp_fus or 0.0),
-                     c.fusion_source) for c in comps]
     ions = any(len(c.species) > 1 for c in comps)
     if len(comps) == 3:
         step = st.select_slider("Grid step", [0.2, 0.1, 0.05], value=0.1, key="wf_pd_step")
         label = f"Compute ternary phase diagram (≈ {ternary_cost(step, ions):.0f} s)"
     else:
-        step, label = None, "Compute phase diagram"
+        step, label = 0.1, "Compute phase diagram"
     if st.button(label, key="wf_pd_run", type="primary" if wf.get("phase", (None,))[0] != key else "secondary"):
         prog = st.progress(0.0, text="Solving liquidus…")
-        cb = lambda f: prog.progress(min(1.0, f), text="Solving liquidus…")  # noqa: E731
         try:
-            if len(comps) == 3:
-                solver = TernarySolver(engine(), ecs)
-                pd_ = solver.solve(step=step, progress=cb)
-                pt = solver.evaluate(zc[None, :], max(173.15, 0.5 * min(c.t_fus for c in ecs)))
-                T_best = float(pt["T_liquidus"].iloc[0]) if pt["T_liquidus"].notna().iloc[0] else \
-                    (-float(pt["T_upper"].iloc[0]) if pt["below_range"].iloc[0] else float("nan"))
-            else:
-                solver = EutecticSolver(engine(), *ecs)
-                pd_ = solver.solve(progress=cb)
-                T_lo = max(50.0, 0.3 * min(c.t_fus for c in ecs))
-                tA, nA, bA = solver.liquidus(float(zc[0]), 0, T_lo)
-                tB, nB, bB = solver.liquidus(float(zc[0]), 1, T_lo)
-                T_best = float(np.nanmax([tA, tB])) if np.isfinite([tA, tB]).any() else \
-                    (-float(np.nanmax([bA, bB])) if "below" in (nA, nB) else float("nan"))
-            wf["phase"] = (key, pd_, zc, T_best)
+            sp_ = D.solvent_phase_diagram(engine(), comps, zc, step=step,
+                                          progress=lambda f: prog.progress(min(1.0, f), text="Solving liquidus…"))
+            wf["phase"] = (key, sp_)
         except Exception as exc:  # noqa: BLE001
             st.error(str(exc))
         prog.empty()
     ph = wf.get("phase")
-    if not ph or ph[0] != key:
+    if not ph or ph[0] != key or len(ph) != 2:
         return
-    _, pd_, zb, T_best = ph
+    sp_ = ph[1]
+    pd_ = sp_.diagram
     m1, m2, m3 = st.columns(3)
-    if T_best < 0:
-        m1.metric("Chosen solvent melts at", f"< {-T_best - 273.15:.0f} °C")
-        liquid = True
-    elif np.isfinite(T_best):
-        m1.metric("Chosen solvent melts at", f"{T_best - 273.15:.1f} °C", f"{T_best:.1f} K", delta_color="off")
-        liquid = T_best < T_cold
-    else:
-        m1.metric("Chosen solvent melts at", "—")
-        liquid = None
-    if len(comps) == 3:
-        ok = np.all(np.isfinite(pd_.z_e))
-        Te = (f"{pd_.T_e - 273.15:.1f} °C" if np.isfinite(pd_.T_e) else
-              f"< {pd_.T_e_upper - 273.15:.0f} °C" if np.isfinite(pd_.T_e_upper) else "—")
-        m2.metric("Eutectic", Te, ratio_label(pd_.z_e) if ok else None, delta_color="off")
+    m1.metric("Chosen solvent melts at", sp_.melt_text(),
+              f"{sp_.T_melt:.1f} K" if np.isfinite(sp_.T_melt) else None, delta_color="off")
+    T_e, _, comp_e = sp_.eutectic_text().partition(" at ")
+    m2.metric("Eutectic", T_e, (comp_e.split(" = ")[-1] if sp_.ternary else comp_e) or None, delta_color="off",
+              help=sp_.eutectic_text())
+    if sp_.ternary:
         m3.metric(f"Liquid at {T_cold - 273.15:.0f} °C", f"{pd_.liquid_fraction(T_cold):.0%}",
                   help="Share of all compositions of these three components that is liquid")
-        st.plotly_chart(ternary_figure(pd_, T_cold, marks=[(zb, "chosen solvent")]), use_container_width=True)
+        st.plotly_chart(ternary_figure(pd_, T_cold, marks=[(sp_.z, "chosen solvent")]), use_container_width=True)
     else:
-        Te = (f"{pd_.T_e - 273.15:.1f} °C" if np.isfinite(pd_.T_e) else
-              f"< {pd_.T_e_upper - 273.15:.0f} °C" if np.isfinite(pd_.T_e_upper) else "—")
-        m2.metric("Eutectic", Te, f"x {names[0]} = {pd_.x_e:.3f}" if np.isfinite(pd_.x_e) else None,
-                  delta_color="off")
         win = pd_.liquid_window(T_cold)
         m3.metric(f"Liquid at {T_cold - 273.15:.0f} °C", f"x {win[0]:.2f}–{win[1]:.2f}" if win else "none")
         fig = plotly_figure(pd_, T_cold)
-        fig.add_vline(x=float(zb[0]), line=dict(color=WF_PALETTE[0], width=2),
+        fig.add_vline(x=float(sp_.z[0]), line=dict(color=WF_PALETTE[0], width=2),
                       annotation_text="chosen solvent", annotation_position="top right")
         st.plotly_chart(fig, use_container_width=True)
+    liquid = sp_.liquid_at(T_cold)
     if liquid is True:
         st.success(f"The chosen composition is predicted to be liquid over the whole range "
                    f"(≥ {T_cold - 273.15:.0f} °C).")
     elif liquid is False:
-        st.warning(f"The chosen composition is predicted to start crystallising at {T_best - 273.15:.1f} °C, above "
+        st.warning(f"The chosen composition is predicted to start crystallising at {sp_.melt_text()}, above "
                    f"the coldest temperature of your range ({T_cold - 273.15:.0f} °C).")
     for n in pd_.notes:
         st.caption("• " + n)

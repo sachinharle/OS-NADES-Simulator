@@ -33,7 +33,7 @@ SMILES / XYZ ──RDKit 3D──► GFN2-xTB opt (ORCA) ──► ORCA !COSMORS
      map for 3) with the chosen composition marked, its predicted melting point, the eutectic, and
      whether it stays liquid down to the coldest temperature of the range.
 
-  The same is available as `osnades design`.
+  The same is available as `osnades design` (`--phase-diagram` adds the phase diagram).
 * **Compound library**: add molecules or ions from presets, SMILES, XYZ, or existing `.orcacosmo`
   files. The library supports several conformers per species and shows a 3D viewer, σ-profiles
   and σ-moment descriptors.
@@ -136,6 +136,8 @@ osnades solvent add "Thymol:Decanoic acid 1:2" "thymol:decanoic acid=1:2"
 osnades solvent list
 osnades design paracetamol -c "choline chloride:0.1:0.5" -c glycerol -c urea -c "water:0:0.3" \
         --tmin 15 --tmax 45 --objective mean_x -o paracetamol_nades   # best multicomponent NADES
+osnades design paracetamol -c thymol -c menthol -c "decanoic acid" --phase-diagram -o hyd
+        # + binary/ternary phase diagram of the best solvent: its melting point, eutectic, liquid share, CSV + PNG
 osnades eutectic thymol menthol -T 298.15 -o thymol_menthol   # eutectic point, liquid window, CSV + PNG
 osnades eutectic "choline chloride" urea --dh-b 14600 --tm-b 406
 osnades eutectic thymol menthol "decanoic acid" -T 298.15 --step 0.1 -o tmd   # ternary: eutectic, liquid share, CSV + PNG
