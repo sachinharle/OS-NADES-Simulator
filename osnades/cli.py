@@ -113,7 +113,7 @@ def cmd_fusion(a):
     for n in names:
         sp = lib.get(n)
         recs = fusion.lookup(sp.smiles, n)
-        pick = fusion.best(recs)
+        pick = fusion.choose(recs, n)
         print(f"== {n}: {len(recs)} published value(s)")
         for r in recs:
             print(("  * " if pick and r.source == pick.source and r.url == pick.url else "    ") + r.label)
@@ -121,6 +121,8 @@ def cmd_fusion(a):
             print("  no melting data found – set it with `osnades set`")
             continue
         print(f"  suggested: {pick.label}")
+        if pick.estimated:
+            print("  ⚠ ΔH_fus is a Walden's-rule estimate – replace it with a measured value if you find one")
         if a.apply:
             lib.update(n, dh_fus=pick.dh_fus, t_fus=pick.t_fus, fusion_source=pick.note)
             print("  saved to library")

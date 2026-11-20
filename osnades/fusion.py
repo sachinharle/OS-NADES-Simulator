@@ -35,6 +35,7 @@ class FusionRecord:
     #   "name"        found by name only (no structure to compare)
     match: str = "exact"
     estimated: bool = False  # ΔH_fus from Walden's rule
+    via: str = "Cheméo"
 
     @property
     def exact(self) -> bool:
@@ -68,7 +69,7 @@ class FusionRecord:
             s += f"; value is for '{self.compound}', a different stereoisomer – verify"
         elif self.match == "name":
             s += f"; matched '{self.compound}' by name only – verify"
-        return s + " (via Cheméo)"
+        return s + (f" (via {self.via})" if self.via else "")
 
 
 def _ssl_context():
@@ -112,22 +113,38 @@ def parse_page(page: str, url: str = "", match: str = "exact") -> list[FusionRec
         if len(tds) < 4:
             continue
         prop = _text(tds[0]).replace(" ", "")
-        key = {"ΔfusH°": "dh", "Tfus": "tm"}.get(prop)
-        if not key or "Calculated Property" in tds[3]:
+        # ΔfusH° / Tfus: value + source.  ΔfusH (no °) = "enthalpy of fusion at a given temperature":
+        # value + temperature (normally the melting point) + source – these are calorimetric data.
+        key = {"ΔfusH°": "dh", "Tfus": "tm", "ΔfusH": "dhT"}.get(prop)
+        if key == "dhT" and len(tds) < 5:
+            continue
+        src_td = tds[4] if key == "dhT" else tds[3]
+        if not key or "Calculated Property" in src_td:
             continue
         val = _text(tds[1])
         if not re.fullmatch(r"-?\d+(\.\d+)?", val.split("±")[0].strip()):
             continue  # ranges like "[27.42; 34.30]" are summaries of the rows below
         v = float(val.split("±")[0])
-        unit = _text(tds[2])
-        if key == "dh":
-            v *= 1000 if unit == "kJ/mol" else 1  # → J/mol
-        src_m = re.search(r'class="src-name"[^>]*href="#ref-([^"]*)"[^>]*title="([^"]*)"', tds[3])
-        ref_id, title = (src_m.group(1), html.unescape(src_m.group(2))) if src_m else ("", _text(tds[3]))
-        r = rows.setdefault(ref_id or title, {"title": title, "doi": None})
+        if key in ("dh", "dhT") and _text(tds[2]) == "kJ/mol":
+            v *= 1000  # → J/mol
+        src_m = re.search(r'class="src-name"[^>]*href="#ref-([^"]*)"[^>]*title="([^"]*)"', src_td)
+        ref_id, title = (src_m.group(1), html.unescape(src_m.group(2))) if src_m else ("", _text(src_td))
+        orig = re.search(r'class="ref"[^>]*title="([^"]*)"', src_td)  # original paper behind a NIST value
+        if orig:
+            title = f"{title} ({html.unescape(orig.group(1))})"
+        r = rows.setdefault(f"{ref_id}|{title}", {"title": title, "doi": None})
         if ref_id.startswith("doi_"):
             r["doi"] = ref_id[4:].replace("_", "/", 1)
-        r.setdefault(key, v)
+        if key == "dhT":
+            t = _text(tds[3])
+            if not re.fullmatch(r"\d+(\.\d+)?", t) or "dh" in r:
+                continue
+            r["dh"], r["tm_dh"] = v, float(t)
+        else:
+            r.setdefault(key, v)
+    for r in rows.values():
+        if "tm" not in r and "tm_dh" in r:
+            r["tm"] = r["tm_dh"]
     return [FusionRecord(dh_fus=r.get("dh"), t_fus=r.get("tm"), source=r["title"], compound=compound,
                          url=url, doi=r["doi"], match=match)
             for r in rows.values() if r.get("dh") or r.get("tm")]
@@ -185,8 +202,8 @@ def _clusters(recs: list[FusionRecord], tol: float = 3.0) -> list[list[FusionRec
 def best(records: list[FusionRecord], estimate: bool = True) -> FusionRecord | None:
     """Pick one record. Melting points are grouped (±3 K) and the group backed by the most independent
     sources wins (data collections sometimes hold values of a glass transition or another polymorph).
-    Within it, a reference reporting both ΔH_fus and T_m is preferred (DSC measurement); if there is
-    none, any paired reference; otherwise the group's median T_m with a Walden's-rule estimate."""
+    Within it, references reporting both ΔH_fus and T_m are preferred (calorimetry) and the one with
+    the median ΔH_fus is taken; if there is none, any paired reference; otherwise the group's median T_m with a Walden's-rule estimate."""
     for match in ("exact", "unspecified", "isomer", "name"):
         pool = [r for r in records if r.match == match]
         groups = _clusters(pool)
@@ -199,7 +216,11 @@ def best(records: list[FusionRecord], estimate: bool = True) -> FusionRecord | N
         med = statistics.median(r.t_fus for r in g)
         paired = [r for r in g if r.dh_fus] or [r for r in pool if r.dh_fus and r.t_fus]
         if paired:
-            return min(paired, key=lambda r: (r.doi is None, abs(r.t_fus - med)))
+            # Old or outlying calorimetric values are common (e.g. 1920s data), so take the reference
+            # whose ΔH_fus is closest to the median of all ΔH_fus values in the group.
+            dmed = statistics.median(r.dh_fus for r in paired)
+            return min(paired, key=lambda r: (round(abs(r.dh_fus - dmed) / dmed, 3), r.doi is None,
+                                              abs(r.t_fus - med)))
         if estimate:
             r = min(g, key=lambda r: abs(r.t_fus - med))
             return FusionRecord(dh_fus=WALDEN_DS * r.t_fus, t_fus=r.t_fus, source=r.source, compound=r.compound,
@@ -207,6 +228,27 @@ def best(records: list[FusionRecord], estimate: bool = True) -> FusionRecord | N
     return None
 
 
-def find(smiles: str | None = None, name: str | None = None, timeout: float = 15.0,
-         estimate: bool = True) -> FusionRecord | None:
-    return best(lookup(smiles, name, timeout), estimate=estimate)
+def preset_record(name: str | None) -> FusionRecord | None:
+    """Fusion data shipped in presets.json for well-known solvent components (e.g. water)."""
+    if not name:
+        return None
+    from .thermo import presets
+
+    d = presets()["species"].get(name, {})
+    if not (d.get("dh_fus") and d.get("t_fus")):
+        return None
+    note = d.get("fusion_source") or d.get("notes") or "preset"
+    return FusionRecord(dh_fus=d["dh_fus"], t_fus=d["t_fus"], source=f"OS-NADES preset value ({note})",
+                        compound=name, url="", via="")
+
+
+def choose(records: list[FusionRecord], name: str | None = None) -> FusionRecord | None:
+    """:func:`best`, except that a shipped preset value beats a Walden's-rule estimate."""
+    pick = best(records)
+    if pick is None or pick.estimated:
+        return preset_record(name) or pick
+    return pick
+
+
+def find(smiles: str | None = None, name: str | None = None, timeout: float = 15.0) -> FusionRecord | None:
+    return choose(lookup(smiles, name, timeout), name)

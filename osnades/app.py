@@ -185,7 +185,7 @@ def fusion_editor(lib: Library, sp) -> None:
         return
     from osnades import fusion
 
-    pick = fusion.best(cands)
+    pick = fusion.choose(cands, name)
     if pick is None:
         st.info(f"No published melting data found for {name}. Enter literature or DSC values above.")
         return

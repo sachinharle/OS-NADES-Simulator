@@ -6,8 +6,9 @@
     ],
     "created": "2026-11-19 07:49",
     "dcp_fus": null,
-    "dh_fus": null,
+    "dh_fus": 8400.0,
     "formula": "C3H8O2",
+    "fusion_source": "NIST (Jabrane, L\u00e9toff\u00e9, et al., 1995) (via Chem\u00e9o)",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 76.095,
     "multiplicity": 1,
@@ -16,7 +17,7 @@
     "optimizer": "xtb",
     "smiles": "CC(O)CO",
     "source": "orca",
-    "t_fus": null
+    "t_fus": 240.0
   },
   "1-octanol": {
     "charge": 0,
@@ -25,8 +26,9 @@
     ],
     "created": "2026-11-19 07:50",
     "dcp_fus": null,
-    "dh_fus": null,
+    "dh_fus": 23700.0,
     "formula": "C8H18O",
+    "fusion_source": "doi:10.1021/je100725a \u2013 Measurements, Correlations, and Mod. UNIFAC (Do) Prediction of (Solid-Liquid) Phase Equilibria Diagrams in Binary Systems (Aliphatic Ketone + an Alcohol) (via Chem\u00e9o)",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 130.23100000000002,
     "multiplicity": 1,
@@ -35,7 +37,7 @@
     "optimizer": "xtb",
     "smiles": "CCCCCCCCO",
     "source": "orca",
-    "t_fus": null
+    "t_fus": 258.6
   },
   "DMSO": {
     "charge": 0,
@@ -44,8 +46,9 @@
     ],
     "created": "2026-11-19 07:50",
     "dcp_fus": null,
-    "dh_fus": null,
+    "dh_fus": 14370.0,
     "formula": "C2H6OS",
+    "fusion_source": "NIST (Clever and Westrum, 1970, 2) (via Chem\u00e9o)",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 78.136,
     "multiplicity": 1,
@@ -54,7 +57,7 @@
     "optimizer": "xtb",
     "smiles": "CS(C)=O",
     "source": "orca",
-    "t_fus": null
+    "t_fus": 291.67
   },
   "acetone": {
     "charge": 0,
@@ -63,8 +66,9 @@
     ],
     "created": "2026-11-19 07:50",
     "dcp_fus": null,
-    "dh_fus": null,
+    "dh_fus": 5690.0,
     "formula": "C3H6O",
+    "fusion_source": "NIST (Parks and Kelley, 1928) (via Chem\u00e9o)",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 58.080000000000005,
     "multiplicity": 1,
@@ -73,7 +77,7 @@
     "optimizer": "xtb",
     "smiles": "CC(C)=O",
     "source": "orca",
-    "t_fus": null
+    "t_fus": 177.6
   },
   "betaine": {
     "charge": 0,
@@ -141,8 +145,9 @@
     ],
     "created": "2026-11-20 12:13",
     "dcp_fus": null,
-    "dh_fus": null,
+    "dh_fus": 24091.6,
     "formula": "C6H8O7",
+    "fusion_source": "Aq. Solubility Prediction; \u0394H_fus estimated from T_m (Walden's rule, \u0394S_fus = 56.5 J/mol/K) (via Chem\u00e9o)",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 192.123,
     "multiplicity": 1,
@@ -151,7 +156,7 @@
     "optimizer": "xtb",
     "smiles": "O=C(O)CC(O)(CC(=O)O)C(=O)O",
     "source": "orca",
-    "t_fus": null
+    "t_fus": 426.4
   },
   "decanoic acid": {
     "charge": 0,
@@ -160,8 +165,9 @@
     ],
     "created": "2026-11-19 07:53",
     "dcp_fus": null,
-    "dh_fus": null,
+    "dh_fus": 28000.0,
     "formula": "C10H20O2",
+    "fusion_source": "doi:10.1021/acs.jced.8b01006 \u2013 Solid-Liquid Equilibrium of Binary Systems Containing Fatty Acids and Fatty Alcohols Using Differential Scanning Calorimetry (via Chem\u00e9o)",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 172.268,
     "multiplicity": 1,
@@ -170,7 +176,7 @@
     "optimizer": "xtb",
     "smiles": "CCCCCCCCCC(=O)O",
     "source": "orca",
-    "t_fus": null
+    "t_fus": 305.28
   },
   "ethanol": {
     "charge": 0,
@@ -179,8 +185,9 @@
     ],
     "created": "2026-11-19 07:45",
     "dcp_fus": null,
-    "dh_fus": null,
+    "dh_fus": 4970.0,
     "formula": "C2H6O",
+    "fusion_source": "NIST (Yoshida, 1944) (via Chem\u00e9o)",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 46.069,
     "multiplicity": 1,
@@ -189,7 +196,7 @@
     "optimizer": "xtb",
     "smiles": "CCO",
     "source": "orca",
-    "t_fus": null
+    "t_fus": 159.0
   },
   "ethyl acetate": {
     "charge": 0,
@@ -198,8 +205,9 @@
     ],
     "created": "2026-11-19 07:54",
     "dcp_fus": null,
-    "dh_fus": null,
+    "dh_fus": 10480.0,
     "formula": "C4H8O2",
+    "fusion_source": "NIST (Acree, 1991) (via Chem\u00e9o)",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 88.106,
     "multiplicity": 1,
@@ -208,7 +216,7 @@
     "optimizer": "xtb",
     "smiles": "CCOC(C)=O",
     "source": "orca",
-    "t_fus": null
+    "t_fus": 189.3
   },
   "ethylene glycol": {
     "charge": 0,
@@ -217,8 +225,9 @@
     ],
     "created": "2026-11-19 07:54",
     "dcp_fus": null,
-    "dh_fus": null,
+    "dh_fus": 9960.0,
     "formula": "C2H6O2",
+    "fusion_source": "NIST (Nikolaev and Rabinovich, 1967) (via Chem\u00e9o)",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 62.068000000000005,
     "multiplicity": 1,
@@ -227,7 +236,7 @@
     "optimizer": "xtb",
     "smiles": "OCCO",
     "source": "orca",
-    "t_fus": null
+    "t_fus": 260.6
   },
   "glucose": {
     "charge": 0,
@@ -236,8 +245,9 @@
     ],
     "created": "2026-11-20 12:07",
     "dcp_fus": null,
-    "dh_fus": null,
+    "dh_fus": 31420.0,
     "formula": "C6H12O6",
+    "fusion_source": "NIST (Parks and Thomas, 1934) (via Chem\u00e9o)",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 180.156,
     "multiplicity": 1,
@@ -246,7 +256,7 @@
     "optimizer": "xtb",
     "smiles": "OC[C@H]1O[C@H](O)[C@H](O)[C@@H](O)[C@@H]1O",
     "source": "orca",
-    "t_fus": null
+    "t_fus": 414.0
   },
   "glycerol": {
     "charge": 0,
@@ -255,8 +265,9 @@
     ],
     "created": "2026-11-19 07:45",
     "dcp_fus": null,
-    "dh_fus": null,
+    "dh_fus": 18290.0,
     "formula": "C3H8O3",
+    "fusion_source": "NIST (Gibson and Giauque, 1923) (via Chem\u00e9o)",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 92.09400000000001,
     "multiplicity": 1,
@@ -265,7 +276,7 @@
     "optimizer": "xtb",
     "smiles": "OCC(O)CO",
     "source": "orca",
-    "t_fus": null
+    "t_fus": 291.0
   },
   "lactic acid": {
     "charge": 0,
@@ -274,8 +285,9 @@
     ],
     "created": "2026-11-19 07:56",
     "dcp_fus": null,
-    "dh_fus": null,
+    "dh_fus": 11340.0,
     "formula": "C3H6O3",
+    "fusion_source": "NIST (Domalski and Hearing, 1996) (via Chem\u00e9o)",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 90.07799999999999,
     "multiplicity": 1,
@@ -284,7 +296,7 @@
     "optimizer": "xtb",
     "smiles": "CC(O)C(=O)O",
     "source": "orca",
-    "t_fus": null
+    "t_fus": 289.9
   },
   "levulinic acid": {
     "charge": 0,
@@ -293,8 +305,9 @@
     ],
     "created": "2026-11-19 07:57",
     "dcp_fus": null,
-    "dh_fus": null,
+    "dh_fus": 9220.0,
     "formula": "C5H8O3",
+    "fusion_source": "NIST (Acree, 1991) (via Chem\u00e9o)",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 116.11599999999999,
     "multiplicity": 1,
@@ -303,7 +316,7 @@
     "optimizer": "xtb",
     "smiles": "CC(=O)CCC(=O)O",
     "source": "orca",
-    "t_fus": null
+    "t_fus": 306.2
   },
   "malic acid": {
     "charge": 0,
@@ -312,8 +325,9 @@
     ],
     "created": "2026-11-19 07:57",
     "dcp_fus": null,
-    "dh_fus": null,
+    "dh_fus": 22777.975,
     "formula": "C4H6O5",
+    "fusion_source": "doi:10.1016/j.jct.2015.02.002 \u2013 Thermodynamic models for determination of the solubility of DL-malic acid in methanol plus (acetonitrile, N,N-dimethylformamide, isopropyl alcohol) binary solvent mixtures; \u0394H_fus estimated from T_m (Walden's rule, \u0394S_fus = 56.5 J/mol/K) (via Chem\u00e9o)",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 134.087,
     "multiplicity": 1,
@@ -322,7 +336,7 @@
     "optimizer": "xtb",
     "smiles": "O=C(O)CC(O)C(=O)O",
     "source": "orca",
-    "t_fus": null
+    "t_fus": 403.15
   },
   "menthol": {
     "charge": 0,
@@ -331,8 +345,9 @@
     ],
     "created": "2026-11-19 07:59",
     "dcp_fus": null,
-    "dh_fus": null,
+    "dh_fus": 12830.0,
     "formula": "C10H20O",
+    "fusion_source": "doi:10.1016/j.fluid.2015.12.048 \u2013 (Solid + liquid) equilibrium phase diagrams in binary mixtures containing terpenes: New experimental data and analysis of several modelling strategies with modified UNIFAC (Dortmund) and PC-SAFT equation of state; database entry 'Cyclohexanol, 5-methyl-2-(1-methylethyl)-, (1\u00abalpha\u00bb,2\u00abbeta\u00bb,5\u00abalpha\u00bb)- (CAS 89-78-1)' gives no stereo information (via Chem\u00e9o)",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 156.269,
     "multiplicity": 1,
@@ -341,7 +356,7 @@
     "optimizer": "xtb",
     "smiles": "CC(C)[C@@H]1CC[C@@H](C)C[C@H]1O",
     "source": "orca",
-    "t_fus": null
+    "t_fus": 315.9
   },
   "methanol": {
     "charge": 0,
@@ -350,8 +365,9 @@
     ],
     "created": "2026-11-19 07:59",
     "dcp_fus": null,
-    "dh_fus": null,
+    "dh_fus": 3215.0,
     "formula": "CH4O",
+    "fusion_source": "CRC Handbook of Chemistry and Physics (\u0394fusH 3.215 kJ/mol at 175.61 K); Chem\u00e9o only lists an older 2.20 kJ/mol value (Maass and Walbauer, 1925)",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 32.042,
     "multiplicity": 1,
@@ -360,7 +376,7 @@
     "optimizer": "xtb",
     "smiles": "CO",
     "source": "orca",
-    "t_fus": null
+    "t_fus": 175.61
   },
   "n-hexane": {
     "charge": 0,
@@ -369,8 +385,9 @@
     ],
     "created": "2026-11-19 08:00",
     "dcp_fus": null,
-    "dh_fus": null,
+    "dh_fus": 13030.0,
     "formula": "C6H14",
+    "fusion_source": "NIST (Huffman, Parks, et al., 1931) (via Chem\u00e9o)",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 86.178,
     "multiplicity": 1,
@@ -379,7 +396,7 @@
     "optimizer": "xtb",
     "smiles": "CCCCCC",
     "source": "orca",
-    "t_fus": null
+    "t_fus": 177.9
   },
   "oxalic acid": {
     "charge": 0,
@@ -388,8 +405,9 @@
     ],
     "created": "2026-11-19 08:00",
     "dcp_fus": null,
-    "dh_fus": null,
+    "dh_fus": 26241.425,
     "formula": "C2H2O4",
+    "fusion_source": "NIST (Wilhoit and Shiao, 1964, 2); \u0394H_fus estimated from T_m (Walden's rule, \u0394S_fus = 56.5 J/mol/K) (via Chem\u00e9o)",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 90.03399999999999,
     "multiplicity": 1,
@@ -398,7 +416,7 @@
     "optimizer": "xtb",
     "smiles": "O=C(O)C(=O)O",
     "source": "orca",
-    "t_fus": null
+    "t_fus": 464.45
   },
   "paraCoumaric_acid": {
     "charge": 0,
@@ -446,8 +464,9 @@
     ],
     "created": "2026-11-19 08:01",
     "dcp_fus": null,
-    "dh_fus": null,
+    "dh_fus": 22010.0,
     "formula": "C10H14O",
+    "fusion_source": "NIST (Chickos, Braton, et al., 1991) (via Chem\u00e9o)",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 150.221,
     "multiplicity": 1,
@@ -456,7 +475,7 @@
     "optimizer": "xtb",
     "smiles": "Cc1ccc(C(C)C)c(O)c1",
     "source": "orca",
-    "t_fus": null
+    "t_fus": 324.0
   },
   "urea": {
     "charge": 0,
@@ -465,8 +484,9 @@
     ],
     "created": "2026-11-19 07:45",
     "dcp_fus": null,
-    "dh_fus": null,
+    "dh_fus": 13900.0,
     "formula": "CH4N2O",
+    "fusion_source": "NIST (Kozyro, Dalidovich, et al., 1986, 2) (via Chem\u00e9o)",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 60.056,
     "multiplicity": 1,
@@ -475,7 +495,7 @@
     "optimizer": "xtb",
     "smiles": "NC(N)=O",
     "source": "orca",
-    "t_fus": null
+    "t_fus": 405.8
   },
   "water": {
     "charge": 0,
@@ -484,8 +504,9 @@
     ],
     "created": "2026-11-19 07:46",
     "dcp_fus": null,
-    "dh_fus": null,
+    "dh_fus": 6009.5,
     "formula": "H2O",
+    "fusion_source": "OS-NADES preset value (exact (ice Ih))",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 18.015,
     "multiplicity": 1,
@@ -494,6 +515,6 @@
     "optimizer": "xtb",
     "smiles": "O",
     "source": "orca",
-    "t_fus": null
+    "t_fus": 273.15
   }
 }

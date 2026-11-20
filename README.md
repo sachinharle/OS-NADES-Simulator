@@ -137,12 +137,15 @@ values come from `fsolve` applied to `|f(x)|`, so they are not converged roots.
   p-coumaric acid (34.3 kJ/mol, 494.3 K, doi:10.1021/acs.jced.6b00361) ship with values. Other
   solutes get published values from the automatic lookup (needs internet), or you can enter your own.
   Check the source shown next to the values; published DSC data for the same compound can differ by
-  several kJ/mol.
+  several kJ/mol (thymol: 17.4–22.1 kJ/mol). The shipped library has measured values for every
+  neutral species except betaine (no data; it decomposes before melting) and citric, malic and
+  oxalic acid (Walden estimates).
 * "Citric acid" and "Glucose" as pure solvents are hypothetical sub-cooled liquids (both melt above
   420 K). They show how each HBD interacts with a solute on its own; real extraction media use them
   inside NADES (ChCl:Citric acid, ChCl:Glucose) or with water.
 * Eutectic diagrams assume pure, immiscible solids (no co-crystals or solid solutions). For neutral
-  pairs (e.g. thymol:menthol, predicted eutectic at x_thymol = 0.41, −4.5 °C) results are reasonable.
+  pairs (e.g. thymol:menthol, predicted eutectic at x_thymol = 0.39, −1 °C with the library's
+  fusion data) results are reasonable.
   For choline chloride, COSMO-RS over-stabilises the split ions, so the eutectic comes out far too
   deep (often below the temperatures where the model converges, which is reported as a bound).
   Use these results to compare candidates, not as absolute melting points.
