@@ -145,9 +145,9 @@
     ],
     "created": "2026-11-20 12:13",
     "dcp_fus": null,
-    "dh_fus": 24091.6,
+    "dh_fus": 59200.0,
     "formula": "C6H8O7",
-    "fusion_source": "Aq. Solubility Prediction; \u0394H_fus estimated from T_m (Walden's rule, \u0394S_fus = 56.5 J/mol/K) (via Chem\u00e9o)",
+    "fusion_source": "doi:10.1021/acs.jced.8b00064 \u2013 Santaella et al., J. Chem. Eng. Data 2018, 63, 3252 (DSC, anhydrous citric acid). Another DSC value: 43.92 kJ/mol, onset 428.4 K (purity analysis, RSC J. Mater. Chem. A SI d2ta09456h)",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 192.123,
     "multiplicity": 1,
@@ -156,7 +156,7 @@
     "optimizer": "xtb",
     "smiles": "O=C(O)CC(O)(CC(=O)O)C(=O)O",
     "source": "orca",
-    "t_fus": 426.4
+    "t_fus": 424.9
   },
   "decanoic acid": {
     "charge": 0,
@@ -325,9 +325,9 @@
     ],
     "created": "2026-11-19 07:57",
     "dcp_fus": null,
-    "dh_fus": 22777.975,
+    "dh_fus": 33522.0,
     "formula": "C4H6O5",
-    "fusion_source": "doi:10.1016/j.jct.2015.02.002 \u2013 Thermodynamic models for determination of the solubility of DL-malic acid in methanol plus (acetonitrile, N,N-dimethylformamide, isopropyl alcohol) binary solvent mixtures; \u0394H_fus estimated from T_m (Walden's rule, \u0394S_fus = 56.5 J/mol/K) (via Chem\u00e9o)",
+    "fusion_source": "doi:10.1016/0040-6031(90)80082-a \u2013 Ceolin, Szwarc & Lepage, Thermochim. Acta 1990, 158, 347 (DL-malic acid, stable form I; form II: 30.17 kJ/mol at 396 K), via NIST WebBook",
     "method": "DFT_BP86_def2-TZVPD_SP",
     "molar_mass": 134.087,
     "multiplicity": 1,
@@ -336,7 +336,7 @@
     "optimizer": "xtb",
     "smiles": "O=C(O)CC(O)C(=O)O",
     "source": "orca",
-    "t_fus": 403.15
+    "t_fus": 402.0
   },
   "menthol": {
     "charge": 0,
