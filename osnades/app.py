@@ -450,18 +450,32 @@ def page_curves():
     st.caption("Curves for every selected solvent system, grouped by solvent class. Each panel has its own "
                "y-scale: linear when values are close together, log otherwise.")
     lib = library()
-    solutes = [s for s in lib.all() if s.dh_fus and s.t_fus]
+    solutes = [s for s in lib.all() if s.charge == 0]
     if not solutes:
-        st.info("No solute with fusion data yet. Set ΔH_fus and T_m for a species in the Compound library.")
+        st.info("Add a neutral compound to the library first.")
         return
     c1, c2, c3 = st.columns([1.2, 1, 1])
     with c1:
-        solute = st.selectbox("Solute", [s.name for s in solutes], key="cv_solute")
+        names = [s.name for s in solutes]
+        solute = st.selectbox("Solute", names, index=next((i for i, s in enumerate(solutes) if s.dh_fus and s.t_fus), 0),
+                              key="cv_solute", format_func=lambda n: n if lib.get(n).dh_fus and lib.get(n).t_fus
+                              else f"{n}  (no fusion data)")
         sp = lib.get(solute)
         a, b, c = st.columns(3)
-        dh = a.number_input("ΔH_fus (kJ/mol)", value=float(sp.dh_fus / 1000), min_value=0.1, key="cv_dh")
-        tm = b.number_input("T_m (K)", value=float(sp.t_fus), min_value=1.0, key="cv_tm")
-        dcp = c.number_input("ΔCp_fus (J/mol/K)", value=float(sp.dcp_fus or 0.0), key="cv_dcp")
+        dh = a.number_input("ΔH_fus (kJ/mol)", value=float(sp.dh_fus / 1000) if sp.dh_fus else None, min_value=0.1,
+                            key=f"cv_dh_{solute}", placeholder="required")
+        tm = b.number_input("T_m (K)", value=float(sp.t_fus) if sp.t_fus else None, min_value=1.0,
+                            key=f"cv_tm_{solute}", placeholder="required")
+        dcp = c.number_input("ΔCp_fus (J/mol/K)", value=float(sp.dcp_fus or 0.0), key=f"cv_dcp_{solute}")
+        if dh is None or tm is None:
+            st.warning(f"Enter the melting enthalpy and melting point of {solute} (literature or DSC) to "
+                       "compute its solubility curves.")
+            return
+        if (sp.dh_fus, sp.t_fus, sp.dcp_fus or 0.0) != (dh * 1000, tm, dcp) and st.button(
+                "Save fusion data to library", key="cv_save"):
+            lib.update(solute, dh_fus=dh * 1000, t_fus=tm, dcp_fus=dcp or None)
+            st.toast(f"Saved fusion data for {solute}")
+            st.rerun()
     with c2:
         t0, t1 = st.slider("Temperature range (°C)", -20, 150, (0, 80), key="cv_range")
         npts = st.slider("Points per curve", 5, 41, 17, key="cv_n")
