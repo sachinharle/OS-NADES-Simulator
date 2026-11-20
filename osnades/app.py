@@ -79,7 +79,8 @@ st.sidebar.title("⚗️ OS-NADES Simulator")
 st.sidebar.caption(f"v{__version__} · ORCA + OPI + openCOSMO-RS")
 page = st.sidebar.radio(
     "Navigate",
-    ["Overview", "Compound library", "Solubility", "Temperature curves", "NADES designer", "Jobs", "Settings"],
+    ["NADES workflow", "Overview", "Compound library", "Solubility", "Temperature curves", "NADES designer", "Jobs",
+     "Settings"],
     label_visibility="collapsed",
 )
 active = job_manager().active()
@@ -101,12 +102,16 @@ Predict **solid solubilities** of compounds in conventional solvents and **(natu
 solvents** from first principles, following the FACCTs OPI *openCOSMO-RS* tutorial and extending it to
 multi-component solvents.
 
+**Start with the NADES workflow page**: it guides you from a solute and a set of candidate components to
+the best mole fractions over a temperature range (σ-surfaces and fusion data are computed or looked up on
+the way). The other pages are tools for individual tasks:
+
 1. **Compound library** – add molecules/ions (SMILES, XYZ or existing `.orcacosmo` files). ORCA computes
    their COSMO σ-surfaces.
 2. **Solubility** – choose a solute, its fusion enthalpy and melting point, and screen solvents/NADES over
    temperature.
 3. **NADES designer** – build custom HBA:HBD mixtures (± water), check species activity coefficients and
-   binary excess Gibbs energies.
+   binary excess Gibbs energies, and compute eutectic phase diagrams of 2 or 3 components.
 """
     )
     lib = library()
@@ -876,12 +881,17 @@ def page_nades():
 def eutectic_panel(lib: Library) -> None:
     from osnades.eutectic import component_names, fusion_defaults, phase_diagram, plotly_figure
 
-    st.markdown("Solid–liquid equilibrium of an **HBA + HBD** pair: liquidus of each component, the eutectic "
-                "point and the composition window that is liquid at your operating temperature.")
     names = component_names(lib)
     if len(names) < 2:
         st.info("Add at least two components.")
         return
+    kind = st.radio("Components", ["2 (binary)", "3 (ternary)"], horizontal=True, key="eu_kind",
+                    disabled=len(names) < 3)
+    if kind.startswith("3"):
+        ternary_panel(lib, names)
+        return
+    st.markdown("Solid–liquid equilibrium of an **HBA + HBD** pair: liquidus of each component, the eutectic "
+                "point and the composition window that is liquid at your operating temperature.")
     cols = st.columns(2)
     comps = []
     defaults = ("choline chloride", "urea") if "choline chloride" in names else (names[0], names[1])
@@ -947,6 +957,120 @@ def eutectic_panel(lib: Library) -> None:
                "preset values are approximate literature numbers.")
 
 
+def fusion_inputs(lib: Library, name: str, key: str) -> tuple[float, float, float]:
+    """ΔH_fus (kJ/mol), T_m (K), ΔCp inputs pre-filled from the library / presets."""
+    from osnades.eutectic import fusion_defaults
+
+    dh0, tm0, dcp0, src = fusion_defaults(name, lib)
+    a, b, c = st.columns(3)
+    dh = a.number_input("ΔH_fus (kJ/mol)", value=float(dh0 / 1000) if dh0 else 20.0, min_value=0.1,
+                        key=f"{key}_dh_{name}")
+    tm = b.number_input("T_m (K)", value=float(tm0 or 350.0), min_value=1.0, key=f"{key}_tm_{name}")
+    dcp = c.number_input("ΔCp (J/mol/K)", value=float(dcp0 or 0.0), key=f"{key}_dcp_{name}")
+    st.caption(f"Fusion data: {src}" if dh0 and tm0 else "⚠️ No stored fusion data – enter literature values.")
+    return dh, tm, dcp
+
+
+def ternary_panel(lib: Library, names: list[str]) -> None:
+    from osnades.eutectic import (ratio_label, resolve_component, ternary_cost, ternary_diagram,
+                                  ternary_figure, ternary_png)
+
+    st.markdown("Liquidus surface of a **three-component** mixture (e.g. HBA + two HBDs): the melting temperature "
+                "of every composition, the ternary eutectic and the region that is liquid at your operating "
+                "temperature.")
+    pick = ["choline chloride", "urea", "glycerol"] if "choline chloride" in names else names[:3]
+    pick = [p for p in pick if p in names] + [n for n in names if n not in pick]
+    cols = st.columns(3)
+    comps, chosen = [], []
+    for i, (col, lab) in enumerate(zip(cols, "ABC")):
+        with col:
+            opts = [n for n in names if n not in chosen]
+            d = next(p for p in pick if p in opts)
+            name = st.selectbox(f"Component {lab}", opts, index=opts.index(d), key=f"te_c{i}")
+            chosen.append(name)
+            comps.append((name, *fusion_inputs(lib, name, f"te{i}")))
+    a, b, c = st.columns(3)
+    T_op = a.number_input("Operating T (K)", value=298.15, key="te_Top")
+    step = b.select_slider("Grid step", [0.2, 0.1, 0.05], value=0.1, key="te_step",
+                           help="Composition spacing (mole fraction). The eutectic is then refined locally.")
+    T_lo = c.number_input("Lowest T checked (K)", value=float(max(173.15, 0.5 * min(x[2] for x in comps))),
+                          min_value=50.0, key=f"te_Tlo_{'_'.join(chosen)}",
+                          help="Liquidus temperatures below this are reported as 'below'.")
+    from osnades.designer import species_of
+
+    ions = any(len(species_of(n)) > 1 for n in chosen)
+    est = ternary_cost(step, ions)
+    run = st.button("Compute ternary diagram", type="primary", key="te_run",
+                    help=f"Estimated time ≈ {est:.0f} s" + (" (salts are slower)" if ions else ""))
+    st.caption(f"Estimated time ≈ {est:.0f} s" + (" (salts are slower)" if ions else ""))
+    if run:
+        try:
+            cs = [resolve_component(nm, lib, dh * 1000, tm, dcp) for nm, dh, tm, dcp in comps]
+            prog = st.progress(0.0, text="Solving liquidus surfaces…")
+            res = ternary_diagram(engine(), cs, step=step, T_lo=T_lo,
+                                  progress=lambda f: prog.progress(min(1.0, f), text="Solving liquidus surfaces…"))
+            prog.empty()
+            st.session_state.te_res = res
+        except Exception as e:  # noqa: BLE001
+            st.error(str(e))
+    res = st.session_state.get("te_res")
+    if res is None:
+        return
+    m2, m3, m4 = st.columns(3)
+    ok_e = np.all(np.isfinite(res.z_e))
+    if np.isfinite(res.T_e):
+        m2.metric("Eutectic T", f"{res.T_e - 273.15:.1f} °C", f"{res.T_e:.1f} K", delta_color="off")
+    else:
+        m2.metric("Eutectic T", f"< {res.T_e_upper - 273.15:.0f} °C" if np.isfinite(res.T_e_upper) else "—")
+    m3.metric("Ideal eutectic", f"{res.T_e_ideal - 273.15:.1f} °C", ratio_label(res.z_e_ideal), delta_color="off")
+    T_ref = res.T_e if np.isfinite(res.T_e) else res.T_e_upper
+    dep = res.T_e_ideal - T_ref
+    m4.metric("Depression", (f"{dep:.1f} K" if np.isfinite(res.T_e) else f"> {dep:.0f} K") if np.isfinite(dep)
+              else "—", help="Positive = deeper than ideal")
+    if ok_e:
+        st.markdown(f"**Eutectic composition** {':'.join(res.names)} = **{ratio_label(res.z_e)}** (mole fractions "
+                    + ", ".join(f"{z:.3f}" for z in res.z_e) + ")")
+    st.plotly_chart(ternary_figure(res, T_op), use_container_width=True)
+    liq = res.liquid(T_op)
+    if len(liq):
+        st.success(f"{res.liquid_fraction(T_op):.0%} of the composition triangle is liquid at "
+                   f"{T_op - 273.15:.1f} °C (inside the dotted line); the lowest-melting is listed first below.")
+        with st.expander(f"Liquid compositions at {T_op - 273.15:.1f} °C ({len(liq)})"):
+            show = liq.rename(columns={f"z_{k}": f"x {n}" for k, n in zip("ABC", res.names)})
+            show = show.assign(**{"liquidus (°C)": np.where(show.below_range, np.nan, show.T_liquidus - 273.15)})
+            st.dataframe(show[[f"x {n}" for n in res.names] + ["liquidus (°C)", "limiting"]]
+                         .sort_values("liquidus (°C)").style.format(precision=3, na_rep="below range"),
+                         hide_index=True, use_container_width=True)
+    else:
+        st.warning(f"No computed composition is fully liquid at {T_op - 273.15:.1f} °C.")
+    for note in res.notes:
+        st.info(note)
+    with st.expander("Data and downloads"):
+        st.dataframe(res.data.style.format(precision=4), hide_index=True, use_container_width=True)
+        stem = "ternary_" + "_".join(res.names).replace(" ", "_")
+        c1, c2 = st.columns(2)
+        c1.download_button("Download CSV", res.data.to_csv(index=False).encode(), file_name=f"{stem}.csv",
+                           key="te_dl")
+        c2.download_button("Download PNG", ternary_png(res, T_op), file_name=f"{stem}.png", key="te_png")
+    if ok_e:
+        with st.form("te_save"):
+            sp: dict[str, float] = {}
+            for n, z in zip(res.names, res.z_e):
+                for s_, nu in species_of(n).items():
+                    sp[s_] = sp.get(s_, 0.0) + round(float(z), 4) * nu
+            nm = st.text_input("Save the eutectic composition as a solvent",
+                               value=f"{':'.join(res.names)} ({ratio_label(res.z_e)})")
+            if st.form_submit_button("Save as solvent"):
+                try:
+                    lib.add_solvent(nm, {k: v for k, v in sp.items() if v > 0})
+                    st.success(f"Saved “{nm}” to your solvents.")
+                except ValueError as exc:
+                    st.error(str(exc))
+    st.caption("Ideal-solid SLE with immiscible solids (no co-crystals or solid solutions). ln γ is computed on a "
+               "temperature grid and interpolated in 1/T; along each edge the result matches the binary diagram "
+               "within ~0.5 K.")
+
+
 # --------------------------------------------------------------------------- jobs
 @st.fragment(run_every=3)
 def jobs_panel():
@@ -1001,5 +1125,575 @@ def page_settings():
         (st.success if stt.ok else st.error)("\n\n".join(stt.messages))
 
 
-{"Overview": page_overview, "Compound library": page_library, "Solubility": page_solubility, "Temperature curves": page_curves,
+# --------------------------------------------------------------------------- NADES workflow
+WF_STEPS = ["1 Solute", "2 Components", "3 Properties", "4 Optimise", "5 Results"]
+WF_PALETTE = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
+WF_TEMPLATES = {
+    "ChCl + polyol": ["choline chloride", "glycerol", "urea"],
+    "ChCl + acid": ["choline chloride", "lactic acid", "malic acid"],
+    "Betaine": ["betaine", "glycerol", "lactic acid"],
+    "Hydrophobic": ["thymol", "menthol", "decanoic acid"],
+}
+
+
+def wf_state() -> dict:
+    if "wf" not in st.session_state:
+        st.session_state.wf = {"step": 0, "solute": None, "smiles": {}, "components": [], "bounds": {},
+                               "result": None}
+    return st.session_state.wf
+
+
+def wf_smiles(name: str, wf: dict) -> str | None:
+    """SMILES for a species that still has to be computed (user input first, then presets)."""
+    return wf["smiles"].get(name) or presets()["species"].get(name, {}).get("smiles")
+
+
+def wf_ready(wf: dict, lib: Library) -> dict[int, str]:
+    """Reasons why a step cannot be entered yet (empty = ready)."""
+    from osnades import designer as D
+
+    why: dict[int, str] = {}
+    if not wf["solute"]:
+        why[1] = why[2] = why[3] = why[4] = "Choose a solute first."
+        return why
+    if not wf["components"]:
+        why[2] = why[3] = why[4] = "Choose at least one solvent component."
+        return why
+    comps = [D.make_component(c, lib) for c in wf["components"]]
+    miss = D.missing_species(wf["solute"], comps, lib)
+    if miss:
+        why[3] = why[4] = "Compute the σ-surfaces of: " + ", ".join(miss)
+    elif not (lib.get(wf["solute"]).dh_fus and lib.get(wf["solute"]).t_fus):
+        why[3] = why[4] = f"Enter or look up ΔH_fus and T_m of {wf['solute']}."
+    if not wf.get("result"):
+        why.setdefault(4, "Run the optimisation first.")
+    return why
+
+
+def wf_nav(wf: dict, why: dict[int, str]) -> None:
+    cols = st.columns(len(WF_STEPS))
+    for i, (c, label) in enumerate(zip(cols, WF_STEPS)):
+        cur = i == wf["step"]
+        if c.button(label, key=f"wf_nav_{i}", type="primary" if cur else "secondary", use_container_width=True,
+                    disabled=i in why and not cur, help=why.get(i)):
+            wf["step"] = i
+            st.rerun()
+
+
+def wf_footer(wf: dict, why: dict[int, str]) -> None:
+    st.markdown("---")
+    a, _, b = st.columns([1, 4, 1])
+    if wf["step"] > 0 and a.button("← Back", key="wf_back", use_container_width=True):
+        wf["step"] -= 1
+        st.rerun()
+    nxt = wf["step"] + 1
+    if nxt < len(WF_STEPS) and nxt != 4:
+        if b.button("Next →", key="wf_next", type="primary", use_container_width=True, disabled=nxt in why,
+                    help=why.get(nxt)):
+            wf["step"] = nxt
+            st.rerun()
+        if nxt in why:
+            b.caption(why[nxt])
+
+
+def wf_step_solute(wf: dict, lib: Library) -> None:
+    st.subheader("Which compound do you want to dissolve?")
+    neutral = [s.name for s in lib.all() if s.charge == 0]
+    pre = presets()["species"]
+    mode = st.radio("Solute", ["From the library", "Preset compound (not computed yet)", "New compound (SMILES)"],
+                    horizontal=True, key="wf_sol_mode")
+    if mode == "From the library":
+        idx = neutral.index(wf["solute"]) if wf["solute"] in neutral else \
+            next((i for i, n in enumerate(neutral) if n == "paracetamol"), 0)
+        name = st.selectbox("Compound", neutral, index=idx, key="wf_sol_lib",
+                            format_func=lambda n: f"{n}  ({fusion_status(lib.get(n))} fusion data)")
+    elif mode == "Preset compound (not computed yet)":
+        opts = [n for n in pre if not lib.has(n) and n not in ("choline", "chloride")]
+        if not opts:
+            st.info("All preset compounds are already in the library.")
+            return
+        name = st.selectbox("Compound", opts, key="wf_sol_pre")
+        st.code(pre[name]["smiles"])
+    else:
+        a, b = st.columns([1, 2])
+        name = a.text_input("Name", key="wf_sol_name").strip()
+        smi = b.text_input("SMILES", key="wf_sol_smi", placeholder="CC(=O)Nc1ccc(O)cc1").strip()
+        if smi:
+            try:
+                from osnades.structures import smiles_info
+
+                info = smiles_info(smi)
+                st.caption(f"{info['formula']} · M = {info['molar_mass']:.2f} g/mol · charge {info['charge']}")
+                if info["charge"] or info["n_fragments"] > 1:
+                    st.error("The solute must be a single neutral molecule.")
+                    return
+            except Exception as exc:  # noqa: BLE001
+                st.error(str(exc))
+                return
+        if name and smi:
+            if lib.has(name) or lib.clash(name):
+                st.error(f"“{name}” is already in the library – pick it from the library instead.")
+                return
+            wf["smiles"][name] = smi
+        else:
+            name = None
+    if name and name != wf["solute"]:
+        if name in wf["components"]:
+            st.error(f"{name} is one of the solvent components – remove it there first.")
+            return
+        wf["solute"], wf["result"] = name, None
+    if wf["solute"]:
+        s = wf["solute"]
+        if lib.has(s):
+            sp = lib.get(s)
+            st.success(f"Solute: **{s}** · {sp.formula} · M = {sp.molar_mass:.2f} g/mol · σ-surface ✓ · "
+                       f"fusion data: {fusion_status(sp)}")
+        else:
+            st.info(f"Solute: **{s}** – its σ-surface will be computed with ORCA in step 3.")
+
+
+def wf_step_components(wf: dict, lib: Library) -> None:
+    from osnades import designer as D
+
+    st.subheader("Which components can the solvent contain?")
+    st.caption("Pick the hydrogen-bond acceptors (e.g. choline chloride, betaine), donors (polyols, amides, acids, "
+               "sugars, terpenes) and optionally water. The optimiser varies their mole fractions within the bounds. "
+               "Salts are weighed in as one unit and split into ions by COSMO-RS.")
+    choices = [c for c in D.component_choices(lib) if c != wf["solute"]]
+    for n in wf["smiles"]:
+        if n not in choices and n != wf["solute"]:
+            choices.append(n)
+    t = st.columns(len(WF_TEMPLATES) + 1)
+    for c, (label, names) in zip(t, WF_TEMPLATES.items()):
+        if c.button(label, key=f"wf_tpl_{label}", use_container_width=True):
+            wf["components"] = [n for n in names if n in choices]
+            wf["result"] = None
+            st.session_state["wf_comps"] = wf["components"]
+            st.rerun()
+    if "wf_comps" not in st.session_state:
+        st.session_state["wf_comps"] = [c for c in wf["components"] if c in choices]
+    sel = st.multiselect("Components", choices, key="wf_comps",
+                         format_func=lambda n: n + ("" if all(lib.has(s) for s in D.species_of(n))
+                                                    else "  (to compute)"))
+    with st.expander("Add a new component (SMILES)"):
+        a, b, c = st.columns([1, 2, 1])
+        nm = a.text_input("Name", key="wf_new_comp_name").strip()
+        smi = b.text_input("SMILES", key="wf_new_comp_smi").strip()
+        if c.button("Add", key="wf_new_comp_add", disabled=not (nm and smi)):
+            try:
+                from osnades.structures import smiles_info
+
+                info = smiles_info(smi)
+                if info["charge"] or info["n_fragments"] > 1:
+                    st.error("Add neutral molecules here; salts must exist as preset salts or as ion species.")
+                elif lib.has(nm) or nm in choices:
+                    st.error(f"{nm} already exists – select it in the list.")
+                else:
+                    wf["smiles"][nm] = smi
+                    st.session_state["wf_comps"] = sel + [nm]
+                    st.rerun()
+            except Exception as exc:  # noqa: BLE001
+                st.error(str(exc))
+    if sel != wf["components"]:
+        wf["components"], wf["result"] = list(sel), None
+    if not sel:
+        return
+    st.markdown("**Mole-fraction bounds** (component basis; a salt counts as one unit)")
+    rows = []
+    for n in sel:
+        default = (0.0, 0.3) if n == "water" else ((0.1, 0.5) if len(D.species_of(n)) > 1 else (0.0, 1.0))
+        lo, hi = wf["bounds"].get(n, default)
+        rows.append({"component": n, "min": lo, "max": hi})
+    ed = st.data_editor(pd.DataFrame(rows), hide_index=True, key=f"wf_bounds_{'|'.join(sel)}",
+                        disabled=["component"], use_container_width=False,
+                        column_config={"min": st.column_config.NumberColumn(min_value=0.0, max_value=1.0, step=0.05),
+                                       "max": st.column_config.NumberColumn(min_value=0.0, max_value=1.0, step=0.05)})
+    bad = []
+    for r in ed.to_dict("records"):
+        lo, hi = float(r["min"] or 0), float(r["max"] if r["max"] is not None else 1)
+        if lo > hi:
+            bad.append(r["component"])
+        if (lo, hi) != wf["bounds"].get(r["component"]):
+            wf["bounds"][r["component"]] = (lo, hi)
+            wf["result"] = None
+    if bad:
+        st.error("min > max for " + ", ".join(bad))
+    if sum(wf["bounds"][n][0] for n in sel) > 1:
+        st.error("The minimum fractions add up to more than 1.")
+    if any(len(D.species_of(n)) > 1 for n in sel):
+        st.caption("Salts default to 0.1–0.5: COSMO-RS over-stabilises ionic mixtures and would otherwise favour "
+                   "unrealistically salt-rich (solid) compositions. Typical NADES use 1:1 to 1:4 salt:HBD.")
+    if "water" not in sel:
+        st.caption("Tip: add water (e.g. 0–0.3) – a little water lowers viscosity and often changes solubility a lot.")
+
+
+def wf_step_properties(wf: dict, lib: Library) -> None:
+    from osnades import designer as D
+    from osnades import fusion
+
+    st.subheader("Required properties")
+    st.caption("Every species needs a COSMO σ-surface (ORCA). The solute needs ΔH_fus and T_m for the solubility; "
+               "components with fusion data are also checked for crystallising out of the solvent.")
+    solute = wf["solute"]
+    comps = [D.make_component(c, lib) for c in wf["components"]]
+    jobs = {j.label: j for j in job_manager().jobs()}
+    rows, need = [], []
+    entries = [(solute, "solute", [solute])] + [(c.name, "component", list(c.species)) for c in comps]
+    for name, role, species in entries:
+        for s in species:
+            have = lib.has(s)
+            j = jobs.get(f"Compute {s}")
+            state = "✓" if have else (f"ORCA: {j.status}" if j and j.status in ("queued", "running", "failed")
+                                      else "missing")
+            if not have and not (j and j.status in ("queued", "running")):
+                need.append(s)
+        if role == "solute":
+            sp = lib.get(name) if lib.has(name) else None
+            fus = fusion_status(sp) if sp else "after ORCA"
+            dh, tm, src = (sp.dh_fus, sp.t_fus, sp.fusion_source or sp.notes) if sp else (None, None, "")
+        else:
+            c = next(c for c in comps if c.name == name)
+            dh, tm, src = c.dh_fus, c.t_fus, c.fusion_source
+            fus = ("estimate" if "estimate" in (src or "") or "Walden" in (src or "") else "available") if c.has_fusion \
+                else "none (not checked for crystallising)"
+        rows.append({"compound": name, "role": role, "COSMO species": ", ".join(species),
+                     "σ-surface": "✓" if all(lib.has(s) for s in species) else
+                     ", ".join(f"{s}: {('✓' if lib.has(s) else (jobs.get(f'Compute {s}').status if jobs.get(f'Compute {s}') else 'missing'))}"
+                               for s in species),
+                     "ΔH_fus (kJ/mol)": round(dh / 1000, 2) if dh else None, "T_m (K)": tm, "fusion data": fus,
+                     "source": src or ""})
+    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True,
+                 column_config={"source": st.column_config.TextColumn(width="medium")})
+
+    # σ-surfaces
+    nosmi = [s for s in need if not wf_smiles(s, wf)]
+    todo = [s for s in need if wf_smiles(s, wf)]
+    if nosmi:
+        st.error("No structure known for: " + ", ".join(nosmi) + " – add them in the Compound library.")
+    if todo:
+        st.warning(f"{len(todo)} σ-surface(s) to compute: {', '.join(todo)} (≈1–3 min each under Docker).")
+        if st.button(f"Compute {len(todo)} missing σ-surface(s) with ORCA", type="primary", key="wf_compute"):
+            for s in todo:
+                queue_compute(s, smiles=wf_smiles(s, wf))
+            st.rerun()
+    running = [j for j in job_manager().active() if j.label.removeprefix("Compute ") in
+               {s for _, _, sps in entries for s in sps}]
+    if running:
+        wf_jobs_live(set(j.id for j in running))
+    failed = [jobs[f"Compute {s}"] for _, _, sps in entries for s in sps
+              if not lib.has(s) and f"Compute {s}" in jobs and jobs[f"Compute {s}"].status == "failed"]
+    for j in failed:
+        st.error(f"{j.label} failed: {j.error[:300]} – see the Jobs page; you can retry above.")
+
+    # fusion data
+    if lib.has(solute):
+        sp = lib.get(solute)
+        st.markdown(f"**Fusion data of the solute ({solute})**")
+        lookup_targets = [solute] if not (sp.dh_fus and sp.t_fus) else []
+        lookup_targets += [c.name for c in comps if not c.has_fusion and lib.has(c.name)]
+        if lookup_targets and st.button(f"Look up missing fusion data ({', '.join(lookup_targets)})",
+                                        key="wf_fus_lookup"):
+            msgs = []
+            with st.spinner("Searching Cheméo and the NIST WebBook…"):
+                for n in lookup_targets:
+                    lib.lookup_fusion(n, log=msgs.append)
+            st.session_state["wf_fus_msgs"] = msgs
+            st.rerun()
+        for m in st.session_state.pop("wf_fus_msgs", []):
+            st.caption(m)
+        with st.form(f"wf_fus_{solute}"):
+            a, b, c, d = st.columns([1, 1, 1, 1])
+            dh = a.number_input("ΔH_fus (kJ/mol)", value=float(sp.dh_fus / 1000) if sp.dh_fus else None,
+                                min_value=0.1, placeholder="required")
+            tm = b.number_input("T_m (K)", value=float(sp.t_fus) if sp.t_fus else None, min_value=1.0,
+                                placeholder="required")
+            dcp = c.number_input("ΔCp_fus (J/mol/K)", value=float(sp.dcp_fus or 0.0))
+            d.markdown("&nbsp;")
+            if d.form_submit_button("Save"):
+                if dh and tm:
+                    changed = (dh * 1000, tm) != (sp.dh_fus, sp.t_fus)
+                    lib.update(solute, dh_fus=dh * 1000, t_fus=tm, dcp_fus=dcp or None,
+                               fusion_source="entered by user" if changed else sp.fusion_source)
+                    wf["result"] = None
+                    st.rerun()
+        fusion_caption(sp)
+
+
+@st.fragment(run_every="5s")
+def wf_jobs_live(ids: set[int]) -> None:
+    jobs = [j for j in job_manager().jobs() if j.id in ids]
+    for j in jobs:
+        icon = {"queued": "⏳", "running": "⚙️", "done": "✅", "failed": "❌"}[j.status]
+        st.caption(f"{icon} {j.label} – {j.status} ({j.elapsed:.0f} s) · {j.log[-1][11:] if j.log else ''}")
+    if jobs and all(j.status in ("done", "failed") for j in jobs):
+        st.rerun(scope="app")
+
+
+def wf_step_optimise(wf: dict, lib: Library) -> None:
+    from osnades import designer as D
+
+    st.subheader("Conditions and optimisation")
+    a, b = st.columns([2, 1])
+    t_lo, t_hi = a.slider("Temperature range (°C)", -20, 120, wf.get("trange", (15, 45)), key="wf_trange")
+    nT = b.number_input("Temperature points", 1, 9, wf.get("nT", 3), key="wf_nT",
+                        help="Solubility is evaluated at these temperatures (evenly spaced).")
+    temps = np.linspace(t_lo, t_hi, int(nT)) + 273.15 if nT > 1 else np.array([t_lo + 273.15])
+    obj = st.radio("Goal", list(D.OBJECTIVES), format_func=D.OBJECTIVES.get, key="wf_obj",
+                   index=list(D.OBJECTIVES).index(wf.get("objective", "mean_x")))
+    c1, c2, c3 = st.columns(3)
+    step = c1.select_slider("Grid step (mole fraction)", [0.25, 0.2, 0.1, 0.05], value=wf.get("grid", 0.1),
+                            key="wf_step")
+    rounds = c2.number_input("Local refinement rounds", 0, 4, wf.get("rounds", 2), key="wf_rounds",
+                             help="Each round halves the step around the 3 best compositions.")
+    top_n = c3.number_input("Candidates to report", 1, 20, wf.get("top_n", 6), key="wf_topn")
+    liquid = st.checkbox("Solvent must be liquid over the whole range", value=wf.get("liquid", True), key="wf_liq",
+                         help="Rejects compositions where a component would crystallise (needs its fusion data).")
+    comps = [D.make_component(c, lib, *wf["bounds"].get(c, (0.0, 1.0))) for c in wf["components"]]
+    st.caption("Bounds: " + " · ".join(f"{c.name} {c.lo:g}–{c.hi:g}" for c in comps) + " (change them in step 2)")
+    n_pts = len(D.lattice(comps, step))
+    salts = any(len(c.species) > 1 for c in comps)
+    est = n_pts * len(temps) * 15 * (0.009 if salts else 0.005) + int(top_n) * len(temps) * 0.5
+    st.caption(f"{n_pts} compositions on the grid × {len(temps)} temperatures · estimated time ≈ {est:.0f} s"
+               + (" (+ refinement)" if rounds else ""))
+    if n_pts > 3000:
+        st.warning("That is a large grid – use a coarser step and let the local refinement zoom in.")
+    if st.button("Find the best composition", type="primary", key="wf_run", disabled=n_pts == 0):
+        sp = lib.get(wf["solute"])
+        bar = st.progress(0.0, text="Starting…")
+        try:
+            des = D.Designer(engine(), wf["solute"], comps, sp.dh_fus, sp.t_fus, sp.dcp_fus or 0.0)
+            res = des.run(temps, step=float(step), objective=obj, require_liquid=liquid, top_n=int(top_n),
+                          local_rounds=int(rounds), progress=lambda f, m: bar.progress(min(1.0, f), text=m))
+        except Exception as exc:  # noqa: BLE001
+            bar.empty()
+            st.error(f"Optimisation failed: {exc}")
+            return
+        bar.empty()
+        wf.update(result=res, trange=(t_lo, t_hi), nT=int(nT), objective=obj, grid=step, rounds=int(rounds),
+                  top_n=int(top_n), liquid=liquid)
+        wf["step"] = 4
+        st.rerun()
+    if n_pts == 0:
+        st.error("No composition satisfies the bounds – go back and widen them.")
+
+
+def wf_step_results(wf: dict, lib: Library) -> None:
+    from osnades import designer as D
+
+    res = wf["result"]
+    comps = res.components
+    if res.best.empty:
+        st.error("No valid composition found.")
+        for n in res.notes:
+            st.warning(n)
+        return
+    best = res.best.iloc[0]
+    z = np.array([best[f"z_{c.name}"] for c in comps])
+    mm = np.array([c._mm for c in comps])
+    w = z * mm / (z * mm).sum()
+    st.subheader(f"Best solvent for {res.solute}")
+    st.markdown(f"### {best['name']}")
+    st.caption(D.OBJECTIVES[res.objective] + f" · {res.temps[0] - 273.15:.0f}–{res.temps[-1] - 273.15:.0f} °C")
+    cols = st.columns(min(4, len(res.temps)))
+    sp = lib.get(res.solute)
+    for c, T in zip(cols * 3, res.temps[:len(cols)] if len(res.temps) <= 4 else res.temps[[0, len(res.temps) // 2, -1]]):
+        xT = best[f"x@{T - 273.15:.1f}°C"]
+        gT = best[f"g/kg@{T - 273.15:.1f}°C"]
+        xid = float(D.ideal_curve([T], sp.dh_fus, sp.t_fus, sp.dcp_fus or 0.0)[0])
+        c.metric(f"{T - 273.15:.0f} °C", f"x = {xT:.3g}", f"{gT:.4g} g/kg · {xT / xid:.2g}× ideal", delta_color="off")
+    tbl = pd.DataFrame({"component": [c.name for c in comps], "mole fraction": z.round(4),
+                        "mass fraction (wt%)": (100 * w).round(2),
+                        "molar ratio": D.ratio_text(z).split(" : ")})
+    st.dataframe(tbl[tbl["mole fraction"] > 0], hide_index=True, use_container_width=False)
+    if not best["liquid_all_T"]:
+        st.warning("This composition is predicted to partly crystallise in the range (no fully liquid composition "
+                   "was found).")
+    at_bound = [f"{c.name} ({'upper' if zi >= c.hi - 1e-6 else 'lower'} bound {c.hi if zi >= c.hi - 1e-6 else c.lo:g})"
+                for c, zi in zip(comps, z) if (zi >= c.hi - 1e-6 and c.hi < 1) or (zi <= c.lo + 1e-6 and c.lo > 0)]
+    if at_bound:
+        st.warning("The optimum sits on a bound: " + ", ".join(at_bound) + ". The true optimum may lie beyond it; "
+                   "widen the bound in step 2 if that composition is practical (for salts, a salt-rich optimum is "
+                   "usually a COSMO-RS artefact).")
+    for n in res.notes:
+        st.info(n)
+
+    tab_t, tab_c, tab_p = st.tabs(["Solubility vs temperature", "Composition map", "Phase diagram"])
+    with tab_p:
+        wf_phase_diagram(wf, res, z)
+    with tab_t:
+        fig = go.Figure()
+        T_line = np.linspace(res.temps[0], res.temps[-1], 30) if len(res.temps) > 1 else res.temps
+        fig.add_trace(go.Scatter(x=T_line - 273.15, y=D.ideal_curve(T_line, sp.dh_fus, sp.t_fus, sp.dcp_fus or 0.0),
+                                 name="ideal solution", mode="lines", line=dict(color="#5f5e58", dash="dash")))
+        for i, (rank, d) in enumerate(res.curves.groupby("rank")):
+            if rank > 6:
+                break
+            d = d.sort_values("T")
+            fig.add_trace(go.Scatter(x=d["T"] - 273.15, y=d["x"], name=f"#{rank} {d['name'].iloc[0]}",
+                                     mode="lines+markers", line=dict(color=WF_PALETTE[i % 8], width=3 if rank == 1 else 1.5)))
+        fig.update_layout(title="Solubility of the best candidates", height=460, hovermode="x unified",
+                          xaxis_title="Temperature (°C)", yaxis_title=f"mole fraction of {res.solute}",
+                          legend=dict(orientation="h", y=-0.25), margin=dict(t=40, l=10, r=10))
+        st.plotly_chart(fig, use_container_width=True)
+    with tab_c:
+        scr = res.screen
+        Tm = res.temps[len(res.temps) // 2]
+        col = f"x@{Tm:.2f}"
+        live = scr[np.isfinite(scr[col])]
+        nz = [c for c in comps if (live[f"z_{c.name}"] > 0).any()]
+        if len(comps) == 3:
+            fig2 = px.scatter_ternary(live, a=f"z_{comps[0].name}", b=f"z_{comps[1].name}", c=f"z_{comps[2].name}",
+                                      color=col, symbol="liquid_all_T", color_continuous_scale="Viridis",
+                                      symbol_map={True: "circle", False: "x"}, hover_data=["ratio"])
+            fig2.update_layout(title=f"Screened compositions – colour: x at {Tm - 273.15:.0f} °C, ✕ = not liquid",
+                               height=560, margin=dict(t=80, l=60, r=60), showlegend=False)
+            st.plotly_chart(fig2, use_container_width=True)
+        elif len(comps) == 2:
+            d2 = live.sort_values(f"z_{comps[0].name}")
+            fig2 = px.line(d2, x=f"z_{comps[0].name}", y=col, markers=True)
+            fig2.update_traces(line_color=WF_PALETTE[0])
+            fig2.update_layout(title=f"x at {Tm - 273.15:.0f} °C vs composition", height=420,
+                               xaxis_title=f"mole fraction {comps[0].name}", yaxis_title="x")
+            st.plotly_chart(fig2, use_container_width=True)
+        else:
+            dims = [f"z_{c.name}" for c in nz]
+            fig2 = px.parallel_coordinates(live.nlargest(min(len(live), 300), col), dimensions=dims + [col],
+                                           color=col, color_continuous_scale="Viridis")
+            fig2.update_layout(title=f"Top screened compositions (x at {Tm - 273.15:.0f} °C)", height=420,
+                               margin=dict(t=70, l=40, r=40))
+            st.plotly_chart(fig2, use_container_width=True)
+        st.caption(f"{len(scr)} compositions screened · {int(scr['liquid_all_T'].sum())} liquid over the whole range.")
+
+    st.markdown("**All reported candidates** (exact SLE solubility)")
+    st.dataframe(res.best.drop(columns=["score"]), hide_index=True, use_container_width=True)
+    a, b, c = st.columns([1, 1, 2])
+    a.download_button("Candidates (CSV)", res.best.to_csv(index=False).encode(), f"{res.solute}_best_nades.csv")
+    b.download_button("Screening grid (CSV)", res.screen.to_csv(index=False).encode(), f"{res.solute}_screen.csv")
+    with c.form("wf_save_solvent"):
+        nm = st.text_input("Save the best composition as a solvent", value=f"Best for {res.solute}")
+        if st.form_submit_button("Save as solvent"):
+            try:
+                lib.add_solvent(nm, res.best_system(0).components, overwrite=True)
+                st.success(f"Saved “{nm}” – available on the Solubility, Temperature curves and NADES pages.")
+            except ValueError as exc:
+                st.error(str(exc))
+
+
+def wf_phase_diagram(wf: dict, res, z: np.ndarray) -> None:
+    """Solid–liquid phase diagram of the solvent components (2 or 3) with the chosen composition marked."""
+    from osnades.eutectic import (Component, EutecticSolver, TernarySolver, plotly_figure, ratio_label,
+                                  ternary_cost, ternary_figure)
+
+    comps = [c for c, zi in zip(res.components, z) if zi > 1e-9] if len(res.components) > 3 else res.components
+    zc = np.array([zi for zi in z if zi > 1e-9]) if len(res.components) > 3 else z
+    if len(comps) not in (2, 3):
+        st.info(f"The phase diagram needs 2 or 3 components; the best solvent has {len(comps)}. "
+                "Use the NADES designer page for any 2 or 3 of them.")
+        return
+    missing = [c.name for c in comps if not c.has_fusion]
+    if missing:
+        st.warning("Fusion data (ΔH_fus, T_m) are missing for " + ", ".join(missing) + " – add them in step 3.")
+        return
+    T_cold = float(res.temps[0])
+    names = [c.name for c in comps]
+    st.markdown(f"Melting behaviour of the solute-free solvent **{' + '.join(names)}**: where it is liquid, its "
+                f"eutectic, and where the chosen composition sits. Dotted line: {T_cold - 273.15:.0f} °C, the "
+                "coldest temperature of your range.")
+    key = (tuple(names), tuple((c.dh_fus, c.t_fus, c.dcp_fus) for c in comps), tuple(np.round(zc, 4)))
+    ecs = [Component(c.name, c.species, float(c.dh_fus), float(c.t_fus), float(c.dcp_fus or 0.0),
+                     c.fusion_source) for c in comps]
+    ions = any(len(c.species) > 1 for c in comps)
+    if len(comps) == 3:
+        step = st.select_slider("Grid step", [0.2, 0.1, 0.05], value=0.1, key="wf_pd_step")
+        label = f"Compute ternary phase diagram (≈ {ternary_cost(step, ions):.0f} s)"
+    else:
+        step, label = None, "Compute phase diagram"
+    if st.button(label, key="wf_pd_run", type="primary" if wf.get("phase", (None,))[0] != key else "secondary"):
+        prog = st.progress(0.0, text="Solving liquidus…")
+        cb = lambda f: prog.progress(min(1.0, f), text="Solving liquidus…")  # noqa: E731
+        try:
+            if len(comps) == 3:
+                solver = TernarySolver(engine(), ecs)
+                pd_ = solver.solve(step=step, progress=cb)
+                pt = solver.evaluate(zc[None, :], max(173.15, 0.5 * min(c.t_fus for c in ecs)))
+                T_best = float(pt["T_liquidus"].iloc[0]) if pt["T_liquidus"].notna().iloc[0] else \
+                    (-float(pt["T_upper"].iloc[0]) if pt["below_range"].iloc[0] else float("nan"))
+            else:
+                solver = EutecticSolver(engine(), *ecs)
+                pd_ = solver.solve(progress=cb)
+                T_lo = max(50.0, 0.3 * min(c.t_fus for c in ecs))
+                tA, nA, bA = solver.liquidus(float(zc[0]), 0, T_lo)
+                tB, nB, bB = solver.liquidus(float(zc[0]), 1, T_lo)
+                T_best = float(np.nanmax([tA, tB])) if np.isfinite([tA, tB]).any() else \
+                    (-float(np.nanmax([bA, bB])) if "below" in (nA, nB) else float("nan"))
+            wf["phase"] = (key, pd_, zc, T_best)
+        except Exception as exc:  # noqa: BLE001
+            st.error(str(exc))
+        prog.empty()
+    ph = wf.get("phase")
+    if not ph or ph[0] != key:
+        return
+    _, pd_, zb, T_best = ph
+    m1, m2, m3 = st.columns(3)
+    if T_best < 0:
+        m1.metric("Chosen solvent melts at", f"< {-T_best - 273.15:.0f} °C")
+        liquid = True
+    elif np.isfinite(T_best):
+        m1.metric("Chosen solvent melts at", f"{T_best - 273.15:.1f} °C", f"{T_best:.1f} K", delta_color="off")
+        liquid = T_best < T_cold
+    else:
+        m1.metric("Chosen solvent melts at", "—")
+        liquid = None
+    if len(comps) == 3:
+        ok = np.all(np.isfinite(pd_.z_e))
+        Te = (f"{pd_.T_e - 273.15:.1f} °C" if np.isfinite(pd_.T_e) else
+              f"< {pd_.T_e_upper - 273.15:.0f} °C" if np.isfinite(pd_.T_e_upper) else "—")
+        m2.metric("Eutectic", Te, ratio_label(pd_.z_e) if ok else None, delta_color="off")
+        m3.metric(f"Liquid at {T_cold - 273.15:.0f} °C", f"{pd_.liquid_fraction(T_cold):.0%}",
+                  help="Share of all compositions of these three components that is liquid")
+        st.plotly_chart(ternary_figure(pd_, T_cold, marks=[(zb, "chosen solvent")]), use_container_width=True)
+    else:
+        Te = (f"{pd_.T_e - 273.15:.1f} °C" if np.isfinite(pd_.T_e) else
+              f"< {pd_.T_e_upper - 273.15:.0f} °C" if np.isfinite(pd_.T_e_upper) else "—")
+        m2.metric("Eutectic", Te, f"x {names[0]} = {pd_.x_e:.3f}" if np.isfinite(pd_.x_e) else None,
+                  delta_color="off")
+        win = pd_.liquid_window(T_cold)
+        m3.metric(f"Liquid at {T_cold - 273.15:.0f} °C", f"x {win[0]:.2f}–{win[1]:.2f}" if win else "none")
+        fig = plotly_figure(pd_, T_cold)
+        fig.add_vline(x=float(zb[0]), line=dict(color=WF_PALETTE[0], width=2),
+                      annotation_text="chosen solvent", annotation_position="top right")
+        st.plotly_chart(fig, use_container_width=True)
+    if liquid is True:
+        st.success(f"The chosen composition is predicted to be liquid over the whole range "
+                   f"(≥ {T_cold - 273.15:.0f} °C).")
+    elif liquid is False:
+        st.warning(f"The chosen composition is predicted to start crystallising at {T_best - 273.15:.1f} °C, above "
+                   f"the coldest temperature of your range ({T_cold - 273.15:.0f} °C).")
+    for n in pd_.notes:
+        st.caption("• " + n)
+
+
+def page_workflow():
+    st.title("NADES workflow")
+    st.caption("Design a multicomponent (natural) deep eutectic solvent for a solute, step by step: solute → "
+               "components → properties (ORCA σ-surfaces, fusion data) → optimise mole fractions over a "
+               "temperature range → results.")
+    lib = library()
+    wf = wf_state()
+    if wf["solute"] and not lib.has(wf["solute"]) and wf["solute"] not in wf["smiles"] \
+            and wf["solute"] not in presets()["species"]:
+        wf["solute"] = None
+    why = wf_ready(wf, lib)
+    if wf["step"] in why:
+        wf["step"] = max(i for i in range(wf["step"]) if i not in why) if wf["step"] else 0
+    wf_nav(wf, why)
+    st.markdown("")
+    [wf_step_solute, wf_step_components, wf_step_properties, wf_step_optimise, wf_step_results][wf["step"]](wf, lib)
+    why_now = wf_ready(wf, lib)
+    if set(why_now) != set(why):  # a choice on this step unlocked/locked other steps: refresh the step bar
+        st.rerun()
+    wf_footer(wf, why_now)
+
+
+{"NADES workflow": page_workflow, "Overview": page_overview, "Compound library": page_library, "Solubility": page_solubility, "Temperature curves": page_curves,
  "NADES designer": page_nades, "Jobs": page_jobs, "Settings": page_settings}[page]()

@@ -198,10 +198,82 @@ def cmd_binary(a):
     return 0
 
 
+def cmd_design(a):
+    """Find the component mole fractions of a multicomponent NADES that dissolve the most solute."""
+    from . import designer as D
+
+    s, lib = _lib()
+    comps = []
+    for spec in a.component:
+        parts = spec.rsplit(":", 2) if spec.count(":") >= 2 else [spec]
+        name = parts[0]
+        lo, hi = (float(parts[1]), float(parts[2])) if len(parts) == 3 else \
+            ((0.1, 0.5) if len(D.species_of(name)) > 1 else (0.0, 0.3 if name == "water" else 1.0))
+        comps.append(D.make_component(name, lib, lo, hi))
+    miss = D.missing_species(a.solute, comps, lib)
+    if miss:
+        print("Missing σ-surfaces – compute them first: " + ", ".join(f"osnades add {m}" for m in miss))
+        return 1
+    sp = lib.get(a.solute)
+    dh, tm = a.dh_fus or sp.dh_fus, a.t_fus or sp.t_fus
+    if not (dh and tm):
+        print(f"ΔH_fus / T_m of {a.solute} unknown: run `osnades fusion {a.solute} --apply` or pass --dh-fus/--t-fus")
+        return 1
+    temps = np.linspace(a.tmin, a.tmax, a.nT) + 273.15 if a.nT > 1 else np.array([a.tmin + 273.15])
+    print(f"{a.solute} in " + ", ".join(f"{c.name} [{c.lo:g}–{c.hi:g}]" for c in comps)
+          + f" · {a.tmin:g}–{a.tmax:g} °C · goal: {D.OBJECTIVES[a.objective]}")
+    des = D.Designer(Engine(lib, a.parameterization), a.solute, comps, dh, tm, sp.dcp_fus or 0.0)
+    res = des.run(temps, step=a.step, objective=a.objective, require_liquid=not a.allow_solid, top_n=a.top,
+                  local_rounds=a.rounds, progress=lambda f, m: print(f"  [{100 * f:5.1f}%] {m}", flush=True))
+    for n in res.notes:
+        print("note:", n)
+    cols = ["rank", "name", "liquid_all_T"] + [c for c in res.best if c.startswith("x@") or c.startswith("g/kg@")]
+    print(res.best[cols].to_string(index=False))
+    if a.out:
+        res.best.to_csv(f"{a.out}_best.csv", index=False)
+        res.screen.to_csv(f"{a.out}_screen.csv", index=False)
+        print(f"wrote {a.out}_best.csv and {a.out}_screen.csv")
+    if a.save_as:
+        lib.add_solvent(a.save_as, res.best_system(0).components, overwrite=True)
+        print(f"saved the best composition as solvent {a.save_as!r}")
+    return 0
+
+
+def cmd_ternary(a, lib):
+    from .eutectic import ratio_label, resolve_component, ternary_diagram, ternary_png
+
+    cs = [resolve_component(n, lib, getattr(a, f"dh_{k}"), getattr(a, f"tm_{k}"), getattr(a, f"dcp_{k}"))
+          for n, k in zip((a.a, a.b, a.c), "abc")]
+    for c in cs:
+        print(f"{c.name}: ΔH_fus = {c.dh_fus / 1000:.2f} kJ/mol, T_m = {c.t_fus:.1f} K ({c.source})")
+    res = ternary_diagram(Engine(lib, a.parameterization), cs, step=a.step, T_lo=a.T_lo)
+    names = ":".join(res.names)
+    print()
+    if np.isfinite(res.T_e):
+        print(f"Ternary eutectic (openCOSMO-RS): {names} = {ratio_label(res.z_e)} "
+              f"(x = {', '.join(f'{z:.3f}' for z in res.z_e)}), T = {res.T_e:.1f} K ({res.T_e - 273.15:.1f} °C)")
+    elif np.isfinite(res.T_e_upper):
+        print(f"Ternary eutectic (openCOSMO-RS): below {res.T_e_upper:.0f} K around {names} = {ratio_label(res.z_e)}")
+    print(f"Ternary eutectic (ideal):        {names} = {ratio_label(res.z_e_ideal)}, T = {res.T_e_ideal:.1f} K "
+          f"({res.T_e_ideal - 273.15:.1f} °C)")
+    if a.T is not None:
+        print(f"Liquid at {a.T:.2f} K: {res.liquid_fraction(a.T):.0%} of the composition triangle")
+    for n in res.notes:
+        print(f"note: {n}")
+    if a.out:
+        out = Path(a.out)
+        res.data.to_csv(out.with_suffix(".csv"), index=False)
+        out.with_suffix(".png").write_bytes(ternary_png(res, a.T))
+        print(f"Saved {out.with_suffix('.csv')} and {out.with_suffix('.png')}")
+    return 0
+
+
 def cmd_eutectic(a):
     from .eutectic import matplotlib_png, phase_diagram, resolve_component
 
     s, lib = _lib()
+    if a.c:
+        return cmd_ternary(a, lib)
     A = resolve_component(a.a, lib, a.dh_a, a.tm_a, a.dcp_a)
     B = resolve_component(a.b, lib, a.dh_b, a.tm_b, a.dcp_b)
     for c in (A, B):
@@ -348,17 +420,36 @@ def main(argv=None):
     q.add_argument("spec", nargs="?", help='species name or "a:b:c=1:1:2" (default: the species called NAME)')
     q.add_argument("--overwrite", action="store_true"); q.set_defaults(fn=cmd_solvent)
 
-    q = sub.add_parser("eutectic", help="solid–liquid phase diagram / eutectic point of an HBA + HBD pair")
+    q = sub.add_parser("eutectic", help="solid–liquid phase diagram / eutectic point of 2 or 3 components")
     q.add_argument("a", help='component A: species, preset salt ("choline chloride") or "cation+anion"')
     q.add_argument("b", help="component B")
-    q.add_argument("-n", type=int, default=41, help="composition grid points")
+    q.add_argument("c", nargs="?", help="optional component C: computes the ternary liquidus surface")
+    q.add_argument("-n", type=int, default=41, help="composition grid points (binary)")
+    q.add_argument("--step", type=float, default=0.1, help="composition grid step (ternary)")
+    q.add_argument("--T-lo", type=float, help="lowest temperature checked (K, ternary)")
     q.add_argument("-T", type=float, help="operating temperature (K): report the liquid composition window")
-    for c in ("a", "b"):
+    for c in ("a", "b", "c"):
         q.add_argument(f"--dh-{c}", type=float, help=f"ΔH_fus of {c.upper()} (J/mol)")
         q.add_argument(f"--tm-{c}", type=float, help=f"T_m of {c.upper()} (K)")
         q.add_argument(f"--dcp-{c}", type=float, help=f"ΔCp_fus of {c.upper()} (J/mol/K)")
     q.add_argument("--parameterization", default="openCOSMORS24a"); q.add_argument("-o", "--out")
     q.set_defaults(fn=cmd_eutectic)
+
+    q = sub.add_parser("design", help="optimise the mole fractions of a multicomponent NADES for a solute")
+    q.add_argument("solute")
+    q.add_argument("-c", "--component", action="append", required=True,
+                   help='component[:min:max], e.g. "choline chloride:0.1:0.5", glycerol, "water:0:0.3" (repeat)')
+    q.add_argument("--tmin", type=float, default=15.0, help="°C"); q.add_argument("--tmax", type=float, default=45.0)
+    q.add_argument("--nT", type=int, default=3, help="temperature points")
+    q.add_argument("--objective", choices=["mean_x", "min_T", "g_per_kg", "cooling"], default="mean_x")
+    q.add_argument("--step", type=float, default=0.1, help="composition grid step")
+    q.add_argument("--rounds", type=int, default=2, help="local refinement rounds")
+    q.add_argument("--top", type=int, default=6); q.add_argument("--allow-solid", action="store_true",
+                   help="do not require the solvent to be liquid over the range")
+    q.add_argument("--dh-fus", type=float); q.add_argument("--t-fus", type=float)
+    q.add_argument("--save-as", help="register the best composition as a solvent")
+    q.add_argument("--parameterization", default="openCOSMORS24a"); q.add_argument("-o", "--out")
+    q.set_defaults(fn=cmd_design)
 
     q = sub.add_parser("app", help="launch the web application"); q.add_argument("--port", type=int, default=8501)
     q.set_defaults(fn=cmd_app)

@@ -14,6 +14,26 @@ SMILES / XYZ ──RDKit 3D──► GFN2-xTB opt (ORCA) ──► ORCA !COSMORS
 
 ## Features
 
+* **NADES workflow** (the app's start page) designs a multicomponent solvent step by step:
+  1. **Solute**: pick it from the library, a preset, or enter a SMILES.
+  2. **Components**: HBAs (choline chloride, betaine…), HBDs (polyols, amides, acids, sugars,
+     terpenes) and optionally water, with min/max mole-fraction bounds. Templates are provided for
+     ChCl + polyol, ChCl + acid, betaine and hydrophobic systems.
+  3. **Properties**: missing σ-surfaces are queued for ORCA with one click (live progress). Fusion
+     data are looked up (Cheméo + NIST) or entered.
+  4. **Optimise**: the component mole fractions are searched on a simplex grid, then refined around
+     the best points. Each composition is screened with batched openCOSMO-RS calls: the SLE solubility
+     of the solute, and whether any component would crystallise (ln a_i vs. its ideal-solid limit), at
+     every temperature of the range. Goals: highest solubility over the range, at the lowest
+     temperature, in g/kg, or the largest gain for cooling crystallisation.
+  5. **Results**: the best composition (mole and mass fractions, molar ratio), exact solubilities
+     against the ideal solution, the solubility-vs-T curves of the top candidates, a composition map
+     (ternary for 3 components), CSV export, and "Save as solvent". A **Phase diagram** tab computes
+     the solid–liquid diagram of the solute-free solvent (binary for 2 components, ternary liquidus
+     map for 3) with the chosen composition marked, its predicted melting point, the eutectic, and
+     whether it stays liquid down to the coldest temperature of the range.
+
+  The same is available as `osnades design`.
 * **Compound library**: add molecules or ions from presets, SMILES, XYZ, or existing `.orcacosmo`
   files. The library supports several conformers per species and shows a 3D viewer, σ-profiles
   and σ-moment descriptors.
@@ -50,6 +70,13 @@ SMILES / XYZ ──RDKit 3D──► GFN2-xTB opt (ORCA) ──► ORCA !COSMORS
     that is liquid at your operating temperature. Salts such as choline chloride are handled as ions,
     referenced to their pure molten salt. Approximate literature fusion data ship for water, ChCl, urea,
     glycerol, ethylene glycol, menthol, thymol, decanoic acid, glucose and DMSO.
+  * **Ternary phase diagram** (switch *Components* to 3): the liquidus surface of three components
+    (e.g. HBA + two HBDs) drawn as isotherms on a composition triangle, the ternary eutectic (refined
+    locally to ±0.006 mole fraction) next to the ideal one, and the region that is liquid at your
+    operating temperature (dotted line) with a table of those compositions. Download CSV/PNG or save
+    the eutectic composition as a solvent. ln γ is computed on a temperature grid uniform in 1/T for
+    all compositions in one batch and interpolated; each edge reproduces the binary diagram within
+    ~0.5 K. Takes ~20 s for neutral components and ~15–60 s with a salt at the default 0.1 grid step.
   * Per-species activity coefficients (residual and combinatorial), the mixture σ-profile,
     and binary Gᴱ/RT curves.
 * **ORCA backends**:
@@ -107,8 +134,11 @@ osnades binary water ethanol -T 298.15
 osnades solvent add vanillin                              # use a library species as a solvent
 osnades solvent add "Thymol:Decanoic acid 1:2" "thymol:decanoic acid=1:2"
 osnades solvent list
+osnades design paracetamol -c "choline chloride:0.1:0.5" -c glycerol -c urea -c "water:0:0.3" \
+        --tmin 15 --tmax 45 --objective mean_x -o paracetamol_nades   # best multicomponent NADES
 osnades eutectic thymol menthol -T 298.15 -o thymol_menthol   # eutectic point, liquid window, CSV + PNG
 osnades eutectic "choline chloride" urea --dh-b 14600 --tm-b 406
+osnades eutectic thymol menthol "decanoic acid" -T 298.15 --step 0.1 -o tmd   # ternary: eutectic, liquid share, CSV + PNG
 ```
 
 ![Paracetamol solubility vs temperature](results/paracetamol_solubility_vs_T.png)
@@ -149,10 +179,15 @@ values come from `fsolve` applied to `|f(x)|`, so they are not converged roots.
   inside NADES (ChCl:Citric acid, ChCl:Glucose) or with water.
 * Eutectic diagrams assume pure, immiscible solids (no co-crystals or solid solutions). For neutral
   pairs (e.g. thymol:menthol, predicted eutectic at x_thymol = 0.39, −1 °C with the library's
-  fusion data) results are reasonable.
+  fusion data) results are reasonable. Adding decanoic acid gives a predicted ternary eutectic of
+  thymol:menthol:decanoic acid ≈ 1.6:2.1:1 at −13 °C, 12 K below the binary one.
   For choline chloride, COSMO-RS over-stabilises the split ions, so the eutectic comes out far too
   deep (often below the temperatures where the model converges, which is reported as a bound).
   Use these results to compare candidates, not as absolute melting points.
+* The NADES optimiser inherits these limits. COSMO-RS strongly favours choline chloride-rich
+  mixtures, which in reality are solid, so salts are bounded to 0.1–0.5 by default and the app warns
+  when the optimum sits on a bound. Treat the result as a ranking of candidate compositions to test,
+  and check the melting point of the chosen mixture.
 * Running under Docker emulation, one species takes ~1–3 min (more for big molecules or several
   conformers).
 

@@ -201,3 +201,49 @@ def test_nist_page_parsing():
     melt = next(r for r in recs if r.dh_fus)
     assert melt.dh_fus == 33522 and melt.t_fus == 402 and "Ceolin" in melt.source and melt.via == "NIST WebBook"
     assert fusion.best(recs).dh_fus == 33522
+
+
+def test_designer_water_ethanol(engine):
+    """Paracetamol in water + ethanol: the optimiser must find the ethanol-rich end, the screening must agree
+    with the exact SLE solver, and the lattice must respect the bounds."""
+    from osnades import designer as D
+
+    lib = engine.library
+    comps = [D.DesignComponent("water", {"water": 1.0}, 0.0, 1.0, 6009.5, 273.15),
+             D.DesignComponent("ethanol", {"ethanol": 1.0}, 0.0, 0.8)]
+    Z = D.lattice(comps, 0.1)
+    assert len(Z) == 9 and Z[:, 1].max() == pytest.approx(0.8) and np.allclose(Z.sum(axis=1), 1)
+    assert D.ratio_text(np.array([0.25, 0.5, 0.25])) == "1 : 2 : 1"
+    des = D.Designer(engine, "paracetamol", comps, 27100.0, 443.6)
+    res = des.run([298.15, 318.15], step=0.1, top_n=2, local_rounds=1)
+    best = res.best.iloc[0]
+    assert best["z_ethanol"] == pytest.approx(0.8)  # more ethanol = more paracetamol dissolves
+    sysm = res.best_system(0)
+    exact = engine.solubility("paracetamol", sysm, 298.15).x
+    assert best["x@25.0°C"] == pytest.approx(exact, rel=1e-9)
+    scr = res.screen.set_index("ratio").loc[D.ratio_text(np.array([0.2, 0.8]))]
+    assert scr["x@298.15"] == pytest.approx(exact, rel=0.1)  # batched screening ≈ exact solver
+    # water crystallises from a water-rich mixture at 0 °C? not at 25 °C: all compositions liquid
+    assert res.screen["liquid_all_T"].all()
+
+
+def test_ternary_liquidus(engine):
+    """Paracetamol + water + ethanol: each edge of the ternary surface reproduces the binary liquidus
+    (1/T interpolation of ln γ), the ideal surface is exact, and the minimum is no higher than any edge."""
+    from osnades.eutectic import Component, EutecticSolver, TernarySolver, simplex_grid
+
+    para = Component("paracetamol", {"paracetamol": 1.0}, 27100.0, 443.6)
+    water = Component("water", {"water": 1.0}, 6009.5, 273.15)
+    eth = Component("ethanol", {"ethanol": 1.0}, 4931.0, 159.0)
+    assert len(simplex_grid(0.25)) == 15
+    ts = TernarySolver(engine, [para, water, eth], n_temps=12)
+    res = ts.solve(step=0.25, T_lo=100.0, refine=1)
+    d = res.data
+    pw = EutecticSolver(engine, para, water)
+    for z in (0.25, 0.5):
+        row = d[np.isclose(d.z_A, z) & np.isclose(d.z_C, 0)].iloc[0]
+        assert row.T_A == pytest.approx(pw.liquidus(z, 0, 150.0)[0], abs=1.0)
+    assert np.isfinite(res.T_e) and res.T_e <= d.loc[d.z_C == 0, "T_liquidus"].min() + 1e-9
+    assert np.allclose(res.z_e.sum(), 1) and np.all(res.z_e >= 0)
+    assert res.T_e_ideal <= d["T_ideal"].min() + 0.5
+    assert 0 <= res.liquid_fraction(300.0) <= 1
