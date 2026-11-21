@@ -14,7 +14,7 @@ SMILES / XYZ ──RDKit 3D──► GFN2-xTB opt (ORCA) ──► ORCA !COSMORS
 
 ## Features
 
-* **NADES workflow** (the app's start page) designs a multicomponent solvent step by step:
+* **NADES workflow** (second in the sidebar, after the Overview; the pages are ordered as you would use them) designs a multicomponent solvent step by step:
   1. **Solute**: pick it from the library, a preset, or enter a SMILES.
   2. **Components**: HBAs (choline chloride, betaine…), HBDs (polyols, amides, acids, sugars,
      terpenes) and optionally water, with min/max mole-fraction bounds. Templates are provided for

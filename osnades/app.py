@@ -77,12 +77,25 @@ def missing_species(systems: list[SolventSystem]) -> list[str]:
 # --------------------------------------------------------------------------- sidebar
 st.sidebar.title("⚗️ OS-NADES Simulator")
 st.sidebar.caption(f"v{__version__} · ORCA + OPI + openCOSMO-RS")
-page = st.sidebar.radio(
-    "Navigate",
-    ["NADES workflow", "Overview", "Compound library", "Solubility", "Temperature curves", "NADES designer", "Jobs",
-     "Settings"],
-    label_visibility="collapsed",
-)
+# in the order they are used: orientation → guided design → tools along the pipeline → configuration
+NAV = {
+    "Overview": "What the app does · library status",
+    "NADES workflow": "Guided: solute → components → best mole fractions",
+    "Compound library": "Add molecules and ions · fusion data",
+    "Jobs": "ORCA σ-surface calculations",
+    "Solubility": "One solute in selected solvents",
+    "Temperature curves": "Solubility vs temperature",
+    "NADES designer": "Mixtures · binary Gᴱ · eutectic diagrams",
+    "Settings": "ORCA backend and paths",
+}
+
+
+def go_to(name: str) -> None:
+    st.session_state.nav = name
+
+
+page = st.sidebar.radio("Navigate", list(NAV), captions=list(NAV.values()), key="nav",
+                        label_visibility="collapsed")
 active = job_manager().active()
 if active:
     st.sidebar.info(f"⏳ {len(active)} ORCA job(s) running/queued")
@@ -102,18 +115,22 @@ Predict **solid solubilities** of compounds in conventional solvents and **(natu
 solvents** from first principles, following the FACCTs OPI *openCOSMO-RS* tutorial and extending it to
 multi-component solvents.
 
-**Start with the NADES workflow page**: it guides you from a solute and a set of candidate components to
-the best mole fractions over a temperature range (σ-surfaces and fusion data are computed or looked up on
-the way). The other pages are tools for individual tasks:
+**Start with the NADES workflow**: it guides you from a solute and a set of candidate components to the
+best mole fractions over a temperature range (σ-surfaces and fusion data are computed or looked up on the
+way). The pages below it in the sidebar are tools for individual tasks, in the order you would use them:
 
-1. **Compound library** – add molecules/ions (SMILES, XYZ or existing `.orcacosmo` files). ORCA computes
-   their COSMO σ-surfaces.
-2. **Solubility** – choose a solute, its fusion enthalpy and melting point, and screen solvents/NADES over
-   temperature.
-3. **NADES designer** – build custom HBA:HBD mixtures (± water), check species activity coefficients and
-   binary excess Gibbs energies, and compute eutectic phase diagrams of 2 or 3 components.
+1. **Compound library** – add molecules/ions (SMILES, XYZ or existing `.orcacosmo` files) and their fusion
+   data. ORCA computes their COSMO σ-surfaces.
+2. **Jobs** – follow the ORCA calculations.
+3. **Solubility** – choose a solute and screen solvents/NADES at one temperature or over a range.
+4. **Temperature curves** – compare solubility vs temperature for several solvents.
+5. **NADES designer** – build custom HBA:HBD mixtures (± water), check activity coefficients and binary
+   excess Gibbs energies, and compute eutectic phase diagrams of 2 or 3 components.
+6. **Settings** – the ORCA backend and folders.
 """
     )
+    st.button("Start the NADES workflow →", type="primary", on_click=go_to, args=("NADES workflow",),
+              key="ov_start")
     lib = library()
     sp = lib.all()
     systems = preset_systems(lib)
