@@ -153,8 +153,11 @@ def parse(path: Path, mapping) -> tuple[list[dict], dict]:
             m = mapping(comps.get(o)) if o in comps else None
             if m is not None:
                 names[o] = m
+        if not any(sol in names for _, sol in props.values()):
+            skip("solute not in the library")
+            continue
         if len(names) != len(members):
-            skip("component not in the library")
+            skip("solvent component not in the library")
             for o in members:
                 if o not in names and o in comps:
                     nm = min(comps[o].names, key=len) if comps[o].names else comps[o].formula

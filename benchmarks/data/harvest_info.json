@@ -1,25 +1,26 @@
 {
  "records": 595,
  "skipped": {
-  "component not in the library": 869,
+  "solute not in the library": 828,
+  "solvent component not in the library": 38,
   "several solid phases in the data set": 13
  },
  "missing_components": {
-  "DMF": 45,
-  "dioxane": 21,
-  "NMP": 21,
-  "toluene": 11,
-  "isobutanol": 11,
-  "butanone": 10,
-  "cyclohexane": 6,
-  "THF": 5,
-  "acetic acid": 5,
-  "methyl acetate": 5,
-  "R-150": 5,
-  "potassium chloride": 4,
-  "succinic acid": 4,
-  "R-20": 4,
-  "sodium chloride": 3
+  "diethylene glycol": 2,
+  "asapic": 2,
+  "acetic acid": 2,
+  "succinic acid": 2,
+  "sodium dihydrogen phosphate": 2,
+  "THF": 1,
+  "1-hexyl-3-methylimidazolium bromide": 1,
+  "ammonium sulfate": 1,
+  "ammonium biphosphate": 1,
+  "diammonium hydrogen phosphate": 1,
+  "potassium sulfate": 1,
+  "aspirin": 1,
+  "ibuprofen": 1,
+  "ketoprofen": 1,
+  "L-ethyl lactate": 1
  },
  "quality_control": {
   "duplicates_removed": 15,

@@ -99,6 +99,26 @@
     "source": "orca",
     "t_fus": 184.7
   },
+  "DMF": {
+    "charge": 0,
+    "conformers": [
+      "DMF/conf0.orcacosmo"
+    ],
+    "created": "2026-11-21 07:04",
+    "dcp_fus": null,
+    "dh_fus": 8950.0,
+    "formula": "C3H7NO",
+    "fusion_source": "NIST (Karyakin, Rabinovich, et al., 1978) (via Chem\u00e9o)",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 73.095,
+    "multiplicity": 1,
+    "name": "DMF",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "CN(C)C=O",
+    "source": "orca",
+    "t_fus": 212.85
+  },
   "DMSO": {
     "charge": 0,
     "conformers": [
@@ -118,6 +138,26 @@
     "smiles": "CS(C)=O",
     "source": "orca",
     "t_fus": 291.67
+  },
+  "NMP": {
+    "charge": 0,
+    "conformers": [
+      "NMP/conf0.orcacosmo"
+    ],
+    "created": "2026-11-21 07:05",
+    "dcp_fus": null,
+    "dh_fus": 18100.0,
+    "formula": "C5H9NO",
+    "fusion_source": "NIST (Lisicki and Jamr\u00f3z, 2000) (via Chem\u00e9o)",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 99.133,
+    "multiplicity": 1,
+    "name": "NMP",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "CN1CCCC1=O",
+    "source": "orca",
+    "t_fus": 248.5
   },
   "acetone": {
     "charge": 0,
@@ -258,6 +298,26 @@
     "smiles": "CCCCCCCCCC(=O)O",
     "source": "orca",
     "t_fus": 305.28
+  },
+  "dioxane": {
+    "charge": 0,
+    "conformers": [
+      "dioxane/conf0.orcacosmo"
+    ],
+    "created": "2026-11-21 07:04",
+    "dcp_fus": null,
+    "dh_fus": 12840.0,
+    "formula": "C4H8O2",
+    "fusion_source": "NIST (via Chem\u00e9o)",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 88.106,
+    "multiplicity": 1,
+    "name": "dioxane",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "C1COCCO1",
+    "source": "orca",
+    "t_fus": 284.1
   },
   "ethanol": {
     "charge": 0,

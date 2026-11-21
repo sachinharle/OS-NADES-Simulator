@@ -173,16 +173,18 @@ values come from `fsolve` applied to `|f(x)|`, so they are not converged roots.
 ## Accuracy
 
 [benchmarks/REPORT.md](benchmarks/REPORT.md) compares predictions with every matching experimental
-solubility data set in the NIST/TRC ThermoML Archive (985 points, 24 papers, 8 solutes, water,
-C1–C4 alcohols, acetone, acetonitrile, ethyl acetate and their mixtures):
+solubility data set in the NIST/TRC ThermoML Archive (1065 points, 24 papers, 8 solutes, water,
+C1–C4 alcohols, acetone, acetonitrile, ethyl acetate, DMF, dioxane and their mixtures):
 
-* typical error a factor of 2.2 (mean |log₁₀ x_pred/x_exp| = 0.34); 96% of points within a factor of 10;
-  the ideal solution with the same fusion data is off by a factor of 5.1 (AAD 0.71);
-* after removing each solute's constant offset, which comes from its fusion data, the error is a factor of 1.5;
-* ranking of pure solvents for one solute is only moderate (median Spearman ρ 0.39): solvents within
+* typical error a factor of 2.3 (mean |log₁₀ x_pred/x_exp| = 0.36); 94% of points within a factor of 10;
+  the ideal solution with the same fusion data is off by a factor of 4.9 (AAD 0.69);
+* after removing each solute's constant offset, which comes from its fusion data, the error is a factor of 1.6;
+* ranking of pure solvents for one solute is only moderate (median Spearman ρ 0.36): solvents within
   a factor of ~1.5 of each other (the alcohols) are often mis-ordered, and acetone, ethyl acetate and
-  acetonitrile come out ×2–2.6 too good relative to the alcohols and water;
+  acetonitrile come out ×1.8–2.6 too good relative to the alcohols and water;
 * the largest errors come from estimated fusion data (oxalic acid, betaine), so measured ΔH_fus and T_m matter most;
+* the library already covers the solvents of almost all ThermoML data for these solutes (38 data sets
+  skipped for a missing component);
 * NADES are **not** covered: ThermoML has no DES solubility data for the library compounds.
 
 Reproduce with `.venv/bin/python -m benchmarks.accuracy all`.

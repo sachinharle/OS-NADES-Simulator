@@ -4,28 +4,28 @@ Predicted solid solubilities (openCOSMO-RS 24a, library σ-surfaces and fusion d
 
 ## Headline
 
-* **985 data points** from **24 papers**, 120 solute–solvent systems, 8 solutes, 273–363 K.
-* Typical error (mean |log₁₀ x_pred/x_exp|): **0.34**, i.e. a factor of **2.2**; RMSE 0.47 log units; mean bias +0.17.
-* **53%** of points are within a factor of 2, **96%** within a factor of 10.
-* The ideal-solution model (γ = 1, same fusion data) has AAD 0.71; openCOSMO-RS is closer than ideal for **70%** of points.
-* Removing each solute's constant offset (an error in its fusion data shifts all its solvents equally) leaves AAD **0.19** (factor 1.5): this is the error of the activity-coefficient model itself, i.e. how well it ranks and scales solvents for one solute.
-* Ranking of pure solvents for a given solute (what screening needs): median Spearman ρ = **0.39** over 53 solute/temperature groups with ≥ 4 solvents; **0.40** for the 45 groups whose measured solubilities span at least a factor of 3. Solvents within a factor of ~1.5 of each other (e.g. the C1–C4 alcohols) are often mis-ordered.
+* **1065 data points** from **24 papers**, 134 solute–solvent systems, 8 solutes, 273–363 K.
+* Typical error (mean |log₁₀ x_pred/x_exp|): **0.36**, i.e. a factor of **2.3**; RMSE 0.49 log units; mean bias +0.20.
+* **52%** of points are within a factor of 2, **94%** within a factor of 10.
+* The ideal-solution model (γ = 1, same fusion data) has AAD 0.69; openCOSMO-RS is closer than ideal for **68%** of points.
+* Removing each solute's constant offset (an error in its fusion data shifts all its solvents equally) leaves AAD **0.21** (factor 1.6): this is the error of the activity-coefficient model itself, i.e. how well it ranks and scales solvents for one solute.
+* Ranking of pure solvents for a given solute (what screening needs): median Spearman ρ = **0.36** over 53 solute/temperature groups with ≥ 4 solvents; **0.39** for the 45 groups whose measured solubilities span at least a factor of 3. Solvents within a factor of ~1.5 of each other (e.g. the C1–C4 alcohols) are often mis-ordered.
 
 
 ## What is and is not covered
 
 * **No deep eutectic solvent was benchmarked.** ThermoML holds no solubility data of the library's compounds in choline chloride (or other) NADES: the one DES paper it lists for paracetamol (doi:10.1016/j.fluid.2018.01.017) is archived with its water data only. NADES predictions remain unvalidated by this benchmark; the known COSMO-RS over-stabilisation of salts (see README) applies.
 * No binary eutectic (two solid-formers) data matched: the measured partners of thymol, menthol and decanoic acid in ThermoML are not in the library.
-* Coverage is limited by the library: data sets were skipped when a component was missing. Most frequent missing components (number of papers): DMF (45), dioxane (21), NMP (21), toluene (11), isobutanol (11), butanone (10), cyclohexane (6), THF (5), acetic acid (5), methyl acetate (5).
-* Data per solute are uneven (betaine 271, malic acid 176, paraCoumaric_acid 165, citric acid 157, paracetamol 119, thymol 48, urea 25, oxalic acid 24 points); a few mixed-solvent studies contribute most points for betaine, malic and citric acid.
+* Coverage is limited by the library: data sets of the benchmarked solutes were skipped when a solvent component was missing. Most frequent missing components (number of papers with data that adding them would unlock): diethylene glycol (2), asapic (2), acetic acid (2), succinic acid (2), sodium dihydrogen phosphate (2), THF (1), 1-hexyl-3-methylimidazolium bromide (1), ammonium sulfate (1), ammonium biphosphate (1), diammonium hydrogen phosphate (1).
+* Data per solute are uneven (betaine 271, malic acid 249, paraCoumaric_acid 165, citric acid 164, paracetamol 119, thymol 48, urea 25, oxalic acid 24 points); a few mixed-solvent studies contribute most points for betaine, malic and citric acid.
 
 ## By solvent type
 
 | group | points | papers | systems | bias (log₁₀) | AAD (log₁₀) | RMSE (log₁₀) | within ×2 | within ×10 | ideal AAD | better than ideal |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| pure organic solvent | 406 | 12 | 37 | +0.17 | 0.40 | 0.58 | 55% | 89% | 0.77 | 63% |
+| pure organic solvent | 420 | 12 | 39 | +0.16 | 0.39 | 0.57 | 56% | 90% | 0.77 | 64% |
 | water | 91 | 15 | 5 | -0.04 | 0.15 | 0.22 | 85% | 100% | 0.89 | 97% |
-| organic mixtures | 242 | 2 | 34 | +0.36 | 0.36 | 0.42 | 36% | 100% | 0.36 | 55% |
+| organic mixtures | 308 | 2 | 46 | +0.43 | 0.43 | 0.53 | 33% | 94% | 0.35 | 51% |
 | aqueous mixtures | 246 | 5 | 44 | +0.08 | 0.29 | 0.36 | 55% | 100% | 0.88 | 86% |
 
 ## By solute
@@ -36,8 +36,8 @@ Predicted solid solubilities (openCOSMO-RS 24a, library σ-surfaces and fusion d
 | thymol | 48 | 1 | 6 | +0.05 | 0.07 | 0.09 | 100% | 100% | 0.11 | 71% |
 | paraCoumaric_acid | 165 | 3 | 17 | +0.03 | 0.14 | 0.19 | 83% | 100% | 0.67 | 90% |
 | paracetamol | 119 | 5 | 7 | +0.10 | 0.14 | 0.21 | 93% | 100% | 0.49 | 59% |
-| malic acid | 176 | 3 | 27 | +0.26 | 0.28 | 0.36 | 65% | 99% | 0.36 | 62% |
-| citric acid | 157 | 5 | 19 | -0.42 | 0.46 | 0.52 | 23% | 99% | 2.03 | 100% |
+| malic acid | 249 | 3 | 40 | +0.36 | 0.38 | 0.51 | 55% | 92% | 0.35 | 55% |
+| citric acid | 164 | 5 | 20 | -0.40 | 0.44 | 0.51 | 26% | 99% | 2.01 | 100% |
 | betaine | 271 | 2 | 27 | +0.53 | 0.53 | 0.60 | 19% | 92% | 0.45 | 53% |
 | oxalic acid | 24 | 1 | 3 | +1.18 | 1.18 | 1.28 | 0% | 33% | 0.46 | 8% |
 
@@ -51,8 +51,8 @@ Log₁₀ errors: AAD 0.30 = factor 2, 1.0 = factor 10. *Bias* > 0: over-predict
 | thymol | 22.01 | 324.0 | +0.05 | NIST (Chickos, Braton, et al., 1991) (via Cheméo) |
 | paraCoumaric_acid | 34.30 | 494.3 | +0.03 | doi:10.1021/acs.jced.6b00361 – Measurement and Correlation of the Solubility of p-Coumaric Acid in Nine Pure a |
 | paracetamol | 27.10 | 443.6 | +0.10 | library value |
-| malic acid | 33.52 | 402.0 | +0.26 | doi:10.1016/0040-6031(90)80082-a – Ceolin, Szwarc & Lepage, Thermochim. Acta 1990, 158, 347 (DL-malic acid, st |
-| citric acid | 59.20 | 424.9 | -0.42 | doi:10.1021/acs.jced.8b00064 – Santaella et al., J. Chem. Eng. Data 2018, 63, 3252 (DSC, anhydrous citric acid |
+| malic acid | 33.52 | 402.0 | +0.36 | doi:10.1016/0040-6031(90)80082-a – Ceolin, Szwarc & Lepage, Thermochim. Acta 1990, 158, 347 (DL-malic acid, st |
+| citric acid | 59.20 | 424.9 | -0.40 | doi:10.1021/acs.jced.8b00064 – Santaella et al., J. Chem. Eng. Data 2018, 63, 3252 (DSC, anhydrous citric acid |
 | betaine | 17.98 | 566.2 | +0.53 | doi:10.1021/je500267w – Wang, Zhang & Wang, J. Chem. Eng. Data 2014, 59, 2511: group-contribution estimate (be |
 | oxalic acid | 26.24 | 464.4 | +1.18 | NIST (Wilhoit and Shiao, 1964, 2); ΔH_fus estimated from T_m (Walden's rule, ΔS_fus = 56.5 J/mol/K) (via Chemé |
 
@@ -69,14 +69,15 @@ Mean log₁₀ error per solvent after subtracting each solute's mean error, so 
 | solvent | solutes | points | mean centred error | factor |
 |---|---:|---:|---:|---:|
 | ethyl acetate | 2 | 21 | +0.42 | ×2.60 |
-| acetone | 4 | 44 | +0.38 | ×2.38 |
-| acetonitrile | 3 | 22 | +0.29 | ×1.97 |
-| 2-propanol | 6 | 64 | +0.28 | ×1.90 |
-| 1-propanol | 5 | 45 | +0.01 | ×1.02 |
-| ethanol | 7 | 107 | -0.05 | ×0.90 |
-| methanol | 5 | 43 | -0.07 | ×0.84 |
-| 1-butanol | 5 | 60 | -0.08 | ×0.83 |
-| water | 5 | 91 | -0.14 | ×0.72 |
+| acetone | 4 | 44 | +0.37 | ×2.36 |
+| 2-propanol | 6 | 64 | +0.26 | ×1.84 |
+| acetonitrile | 3 | 22 | +0.26 | ×1.81 |
+| 1-propanol | 5 | 45 | +0.01 | ×1.01 |
+| ethanol | 7 | 107 | -0.07 | ×0.86 |
+| dioxane | 2 | 14 | -0.07 | ×0.86 |
+| methanol | 5 | 43 | -0.08 | ×0.84 |
+| 1-butanol | 5 | 60 | -0.09 | ×0.82 |
+| water | 5 | 91 | -0.16 | ×0.69 |
 
 ## Largest systematic deviations (mean log₁₀ error per solute + solvent family)
 
@@ -91,9 +92,9 @@ Mean log₁₀ error per solvent after subtracting each solute's mean error, so 
 | malic acid | acetonitrile | 7 | 303–333 | +0.98 | doi:10.1016/j.fluid.2011.09.033 |
 | citric acid | 1-butanol | 19 | 288–333 | -0.79 | doi:10.1021/je101167z |
 | betaine | ethanol | 10 | 283–328 | +0.76 | doi:10.1021/je2011659 |
+| malic acid | DMF + methanol | 66 | 278–328 | +0.68 | doi:10.1016/j.jct.2015.02.002 |
 | paracetamol | acetone | 8 | 293–323 | +0.63 | doi:10.1021/acs.jced.7b00118 |
 | oxalic acid | ethanol | 8 | 288–323 | +0.55 | doi:10.1016/j.jct.2014.05.009 |
-| citric acid | methanol + water | 13 | 278–303 | -0.51 | doi:10.1021/je400838e |
 
 ## Best-predicted systems (≥ 3 points)
 
@@ -125,20 +126,20 @@ Mean log₁₀ error per solvent after subtracting each solute's mean error, so 
 | citric acid | 290 | 5 | -0.30 |
 | citric acid | 295 | 6 | -0.37 |
 | citric acid | 300 | 5 | -0.30 |
-| citric acid | 305 | 8 | 0.24 |
-| citric acid | 310 | 6 | 0.37 |
-| citric acid | 315 | 7 | 0.25 |
-| citric acid | 320 | 6 | 0.37 |
-| citric acid | 325 | 6 | 0.43 |
-| citric acid | 330 | 6 | 0.37 |
-| citric acid | 335 | 6 | 0.37 |
-| malic acid | 305 | 4 | 0.40 |
-| malic acid | 310 | 4 | 0.40 |
-| malic acid | 315 | 4 | 0.40 |
-| malic acid | 320 | 4 | 0.80 |
-| malic acid | 325 | 4 | 1.00 |
-| malic acid | 330 | 4 | 1.00 |
-| malic acid | 335 | 4 | 1.00 |
+| citric acid | 305 | 9 | 0.23 |
+| citric acid | 310 | 7 | 0.36 |
+| citric acid | 315 | 8 | 0.14 |
+| citric acid | 320 | 7 | 0.29 |
+| citric acid | 325 | 7 | 0.36 |
+| citric acid | 330 | 7 | 0.32 |
+| citric acid | 335 | 7 | 0.32 |
+| malic acid | 305 | 5 | 0.20 |
+| malic acid | 310 | 5 | 0.10 |
+| malic acid | 315 | 5 | 0.10 |
+| malic acid | 320 | 5 | 0.50 |
+| malic acid | 325 | 5 | 0.70 |
+| malic acid | 330 | 5 | 0.70 |
+| malic acid | 335 | 5 | 0.70 |
 | paraCoumaric_acid | 295 | 7 | 0.39 |
 | paraCoumaric_acid | 300 | 7 | 0.39 |
 | paraCoumaric_acid | 305 | 7 | 0.36 |
@@ -169,7 +170,7 @@ Mean log₁₀ error per solvent after subtracting each solute's mean error, so 
 ## Data and method
 
 * Source: NIST/TRC ThermoML Archive, searched by InChIKey for 8 library solids (T_m ≥ 285 K); 595 records read. Points were kept when the measured property is the liquid-phase amount of a component coexisting with its own crystal, all other components are in the library, and the solvent composition is fully specified. Mass fractions and molalities were converted to mole fractions; mixed-solvent compositions on a solute-free basis.
-* Skipped data sets (counts of points/sets): component not in the library: 869, several solid phases in the data set: 13.
+* Skipped data sets (counts of points/sets): solute not in the library: 828, solvent component not in the library: 38, several solid phases in the data set: 13.
 * 0 points could not be predicted (solver did not converge) and are excluded from the statistics.
 * Choline chloride is a formula unit in the data and two COSMO species (choline⁺, Cl⁻) in the model; predictions are converted to formula units before comparison.
 * Fusion data are the library values the app uses (see the Compound library page); errors in ΔH_fus and T_m shift all solvents of a solute equally, which shows up as a per-solute bias.
@@ -180,11 +181,11 @@ Mean log₁₀ error per solvent after subtracting each solute's mean error, so 
 | DOI | year | points | solutes | title |
 |---|---|---:|---|---|
 | [10.1021/je2011659](https://doi.org/10.1021/je2011659) | 2012 | 270 | betaine | Solubility and Solution Thermodynamics of Betaine in Different Pure Solvents and Binary Mixtures |
+| [10.1016/j.jct.2015.02.002](https://doi.org/10.1016/j.jct.2015.02.002) | 2015 | 198 | malic acid | Thermodynamic models for determination of the solubility of DL-malic acid in methanol plus (acetonitrile, N,N-dimethylformamide, isopropyl alcohol) binary solvent mixtures |
 | [10.1021/acs.jced.6b00361](https://doi.org/10.1021/acs.jced.6b00361) | 2016 | 153 | paraCoumaric_acid | Measurement and Correlation of the Solubility of p-Coumaric Acid in Nine Pure and Water + Ethanol Mixed Solvents at Temperatures from 293.15 to 333.15 K |
-| [10.1016/j.jct.2015.02.002](https://doi.org/10.1016/j.jct.2015.02.002) | 2015 | 132 | malic acid | Thermodynamic models for determination of the solubility of DL-malic acid in methanol plus (acetonitrile, N,N-dimethylformamide, isopropyl alcohol) binary solvent mixtures |
 | [10.1021/acs.jced.7b00118](https://doi.org/10.1021/acs.jced.7b00118) | 2017 | 85 | paracetamol | Pressurized-Synthetic Methodology for Solubility Determination at Elevated Temperatures with Application to Paracetamol in Pure Solvents |
+| [10.1016/j.fluid.2011.09.033](https://doi.org/10.1016/j.fluid.2011.09.033) | 2012 | 70 | citric acid, malic acid | Solubility of citric, malonic, and malic acids in different solvents from 303.2 to  333.2 K |
 | [10.1021/je101167z](https://doi.org/10.1021/je101167z) | 2011 | 57 | citric acid | Solubilities of 3-Carboxy-3-hydroxypentanedioic Acid in Ethanol, Butan-1-ol, Water, Acetone, and Methylbenzene |
-| [10.1016/j.fluid.2011.09.033](https://doi.org/10.1016/j.fluid.2011.09.033) | 2012 | 56 | citric acid, malic acid | Solubility of citric, malonic, and malic acids in different solvents from 303.2 to  333.2 K |
 | [10.1016/j.jct.2015.09.010](https://doi.org/10.1016/j.jct.2015.09.010) | 2016 | 48 | thymol | Solubility and solution thermodynamics of thymol in six pure organic solvents |
 | [10.1021/je400838e](https://doi.org/10.1021/je400838e) | 2014 | 44 | citric acid | Solubility of 2-Hydroxypropane-1,2,3-tricarboxylic Acid Monohydrate in Different Binary Solvents from (278.15 to 303.15) K |
 | [10.1016/j.fluid.2013.05.014](https://doi.org/10.1016/j.fluid.2013.05.014) | 2013 | 26 | citric acid | Solubility of citric acid in water, ethanol, n-propanol and in mixtures of ethanol + water |

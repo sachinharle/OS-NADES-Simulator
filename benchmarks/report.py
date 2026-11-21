@@ -225,8 +225,9 @@ def cmd_report():
           "unvalidated by this benchmark; the known COSMO-RS over-stabilisation of salts (see README) applies.",
           "* No binary eutectic (two solid-formers) data matched: the measured partners of thymol, menthol and "
           "decanoic acid in ThermoML are not in the library.",
-          "* Coverage is limited by the library: data sets were skipped when a component was missing. Most "
-          "frequent missing components (number of papers): "
+          "* Coverage is limited by the library: data sets of the benchmarked solutes were skipped when a solvent "
+          "component was missing. Most frequent missing components (number of papers with data that adding "
+          "them would unlock): "
           + ", ".join(f"{k} ({v})" for k, v in list(info.get("missing_components", {}).items())[:10]) + ".",
           "* Data per solute are uneven ("
           + ", ".join(f"{k} {v}" for k, v in df.solute.value_counts().items())
