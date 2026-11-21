@@ -170,6 +170,21 @@ The σ-descriptors and non-iterative results match the tutorial exactly. The tut
 values come from `fsolve` applied to `|f(x)|`, so they are not converged roots.
 `tests/test_thermo.py` checks that this app's iterative answer satisfies the SLE equation to 1e-6.
 
+## Accuracy
+
+[benchmarks/REPORT.md](benchmarks/REPORT.md) compares predictions with every matching experimental
+solubility data set in the NIST/TRC ThermoML Archive (649 points, 22 papers, 8 solutes, water,
+organic solvents and their mixtures):
+
+* typical error a factor of 2.2 (mean |log₁₀ x_pred/x_exp| = 0.33); 98% of points within a factor of 10;
+  the ideal solution with the same fusion data is off by a factor of 6.3;
+* after removing each solute's constant offset, which comes from its fusion data, the error is a factor of 1.4,
+  and pure solvents are ranked with a median Spearman ρ of 0.80;
+* the largest errors come from estimated fusion data (oxalic acid, betaine), so measured ΔH_fus and T_m matter most;
+* NADES are **not** covered: ThermoML has no DES solubility data for the library compounds.
+
+Reproduce with `.venv/bin/python -m benchmarks.accuracy all`.
+
 ## Model notes and limits
 
 * Salts are split into their ions, as is usual in COSMO-RS (choline⁺ + Cl⁻). The mole fraction `x`

@@ -17,3 +17,6 @@ data/library/index.tmp
 tutorial/opencosmors/
 
 .DS_Store
+
+# Benchmark download cache (re-created by benchmarks/accuracy.py harvest)
+benchmarks/cache/

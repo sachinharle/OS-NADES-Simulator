@@ -1,0 +1,14 @@
+{
+ "records": 595,
+ "skipped": {
+  "component not in the library": 897,
+  "several solid phases in the data set": 13
+ },
+ "quality_control": {
+  "duplicates_removed": 13,
+  "inconsistent_sets": [
+   "10.1016/j.fluid.2014.06.017 set 3 (malic acid in water end point 0.568 vs pure-solvent 0.15 at 298.1 K)"
+  ],
+  "points_removed_inconsistent": 88
+ }
+}
