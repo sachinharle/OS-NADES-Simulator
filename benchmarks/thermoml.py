@@ -151,13 +151,14 @@ def parse(path: Path, mapping) -> tuple[list[dict], dict]:
         names = {}
         for o in members:
             m = mapping(comps.get(o)) if o in comps else None
-            if m is None:
-                break
-            names[o] = m
-        else:
-            m = None
+            if m is not None:
+                names[o] = m
         if len(names) != len(members):
             skip("component not in the library")
+            for o in members:
+                if o not in names and o in comps:
+                    nm = min(comps[o].names, key=len) if comps[o].names else comps[o].formula
+                    skip(f"missing: {nm}")
             continue
         # composition specs: constraints (fixed) and variables (per point)
         fixed, var_kind, T_fixed = {}, {}, None
@@ -279,7 +280,7 @@ def harvest(inchikeys: dict[str, str], mapping, log=print) -> tuple[pd.DataFrame
             continue
         log(f"  {name}: {len(found)} ThermoML records")
         dois |= set(found)
-    rows, skipped = [], {}
+    rows, skipped, missing = [], {}, {}
     for i, doi in enumerate(sorted(dois)):
         try:
             p = fetch(doi)
@@ -289,11 +290,16 @@ def harvest(inchikeys: dict[str, str], mapping, log=print) -> tuple[pd.DataFrame
             continue
         rows += r
         for k, v in s.items():
-            skipped[k] = skipped.get(k, 0) + v
+            if k.startswith("missing: "):
+                missing.setdefault(k[9:], set()).add(doi)
+            else:
+                skipped[k] = skipped.get(k, 0) + v
     df = pd.DataFrame(rows)
     if len(df):
         df = df[df["solute"].isin(inchikeys)].drop_duplicates(["doi", "solute", "T", "x_exp", "composition"])
-    return df.reset_index(drop=True), {"records": len(dois), "skipped": skipped}
+    top = sorted(missing.items(), key=lambda kv: -len(kv[1]))
+    return df.reset_index(drop=True), {"records": len(dois), "skipped": skipped,
+                                       "missing_components": {k: len(v) for k, v in top[:15]}}
 
 
 def first_block(key: str) -> str:

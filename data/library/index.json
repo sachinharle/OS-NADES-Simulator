@@ -19,6 +19,26 @@
     "source": "orca",
     "t_fus": 240.0
   },
+  "1-butanol": {
+    "charge": 0,
+    "conformers": [
+      "1-butanol/conf0.orcacosmo"
+    ],
+    "created": "2026-11-21 06:51",
+    "dcp_fus": null,
+    "dh_fus": 9280.0,
+    "formula": "C4H10O",
+    "fusion_source": "NIST (Acree, 1991) (via Chem\u00e9o)",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 74.12299999999999,
+    "multiplicity": 1,
+    "name": "1-butanol",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "CCCCO",
+    "source": "orca",
+    "t_fus": 183.9
+  },
   "1-octanol": {
     "charge": 0,
     "conformers": [
@@ -38,6 +58,46 @@
     "smiles": "CCCCCCCCO",
     "source": "orca",
     "t_fus": 258.6
+  },
+  "1-propanol": {
+    "charge": 0,
+    "conformers": [
+      "1-propanol/conf0.orcacosmo"
+    ],
+    "created": "2026-11-21 06:51",
+    "dcp_fus": null,
+    "dh_fus": 5370.0,
+    "formula": "C3H8O",
+    "fusion_source": "NIST (Counsell, Lees, et al., 1968) (via Chem\u00e9o)",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 60.096,
+    "multiplicity": 1,
+    "name": "1-propanol",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "CCCO",
+    "source": "orca",
+    "t_fus": 148.75
+  },
+  "2-propanol": {
+    "charge": 0,
+    "conformers": [
+      "2-propanol/conf0.orcacosmo"
+    ],
+    "created": "2026-11-21 06:50",
+    "dcp_fus": null,
+    "dh_fus": 5370.0,
+    "formula": "C3H8O",
+    "fusion_source": "NIST (via Chem\u00e9o)",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 60.096000000000004,
+    "multiplicity": 1,
+    "name": "2-propanol",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "CC(C)O",
+    "source": "orca",
+    "t_fus": 184.7
   },
   "DMSO": {
     "charge": 0,
@@ -78,6 +138,26 @@
     "smiles": "CC(C)=O",
     "source": "orca",
     "t_fus": 177.6
+  },
+  "acetonitrile": {
+    "charge": 0,
+    "conformers": [
+      "acetonitrile/conf0.orcacosmo"
+    ],
+    "created": "2026-11-21 06:52",
+    "dcp_fus": null,
+    "dh_fus": 8170.0,
+    "formula": "C2H3N",
+    "fusion_source": "NIST (Domalski and Hearing, 1996) (via Chem\u00e9o)",
+    "method": "DFT_BP86_def2-TZVPD_SP",
+    "molar_mass": 41.053,
+    "multiplicity": 1,
+    "name": "acetonitrile",
+    "notes": "",
+    "optimizer": "xtb",
+    "smiles": "CC#N",
+    "source": "orca",
+    "t_fus": 229.3
   },
   "betaine": {
     "charge": 0,

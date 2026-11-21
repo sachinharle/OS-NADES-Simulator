@@ -1,14 +1,32 @@
 {
  "records": 595,
  "skipped": {
-  "component not in the library": 897,
+  "component not in the library": 869,
   "several solid phases in the data set": 13
  },
+ "missing_components": {
+  "DMF": 45,
+  "dioxane": 21,
+  "NMP": 21,
+  "toluene": 11,
+  "isobutanol": 11,
+  "butanone": 10,
+  "cyclohexane": 6,
+  "THF": 5,
+  "acetic acid": 5,
+  "methyl acetate": 5,
+  "R-150": 5,
+  "potassium chloride": 4,
+  "succinic acid": 4,
+  "R-20": 4,
+  "sodium chloride": 3
+ },
  "quality_control": {
-  "duplicates_removed": 13,
+  "duplicates_removed": 15,
   "inconsistent_sets": [
-   "10.1016/j.fluid.2014.06.017 set 3 (malic acid in water end point 0.568 vs pure-solvent 0.15 at 298.1 K)"
+   "10.1016/j.fluid.2014.06.017 set 3 (malic acid in water end point 0.568 vs pure-solvent 0.15 at 298.1 K)",
+   "10.1021/je400838e set 5 (citric acid in 2-propanol end point 0.143 vs pure-solvent 0.0799 at 303.1 K)"
   ],
-  "points_removed_inconsistent": 88
+  "points_removed_inconsistent": 95
  }
 }

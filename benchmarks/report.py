@@ -54,7 +54,8 @@ def ranking(df: pd.DataFrame) -> pd.DataFrame:
         g = g.groupby("solvent").agg(x_exp=("x_exp", "median"), x_pred=("x_pred", "median"),
                                      x_ideal=("x_ideal", "median")).reset_index()
         if len(g) >= 4:
-            rows.append({"solute": sol, "T": T, "solvents": len(g), "rho": spearmanr(g.x_exp, g.x_pred)[0]})
+            rows.append({"solute": sol, "T": T, "solvents": len(g), "rho": spearmanr(g.x_exp, g.x_pred)[0],
+                         "span": g.x_exp.max() / g.x_exp.min()})
     return pd.DataFrame(rows)
 
 
@@ -174,6 +175,9 @@ def cmd_report():
     # remove each solute's constant offset (mostly fusion-data error, common to all its solvents)
     df["err_centered"] = df["err"] - df.groupby("solute")["err"].transform("mean")
     aad_c = df["err_centered"].abs().mean()
+    pure_pts = df[df["category"].isin(["pure organic solvent", "water"])]
+    per_solvent = pure_pts.groupby("solvent").agg(solutes=("solute", "nunique"), points=("err", "size"),
+                                                  err=("err_centered", "mean")).sort_values("err", ascending=False)
     from benchmarks.accuracy import _lib
 
     lib = _lib()
@@ -207,7 +211,10 @@ def cmd_report():
           f"equally) leaves AAD **{aad_c:.2f}** (factor {10 ** aad_c:.1f}): this is the error of the "
           "activity-coefficient model itself, i.e. how well it ranks and scales solvents for one solute.",
           (f"* Ranking of pure solvents for a given solute (what screening needs): median Spearman ρ = "
-           f"**{rk.rho.median():.2f}** over {len(rk)} solute/temperature groups with ≥ 4 solvents."
+           f"**{rk.rho.median():.2f}** over {len(rk)} solute/temperature groups with ≥ 4 solvents; "
+           f"**{rk[rk.span >= 3].rho.median():.2f}** for the {int((rk.span >= 3).sum())} groups whose measured "
+           "solubilities span at least a factor of 3. Solvents within a factor of ~1.5 of each other (e.g. "
+           "the C1–C4 alcohols) are often mis-ordered."
            if len(rk) else "* Not enough pure-solvent data to assess solvent ranking."),
           "",
           "",
@@ -218,11 +225,12 @@ def cmd_report():
           "unvalidated by this benchmark; the known COSMO-RS over-stabilisation of salts (see README) applies.",
           "* No binary eutectic (two solid-formers) data matched: the measured partners of thymol, menthol and "
           "decanoic acid in ThermoML are not in the library.",
-          "* Coverage is limited by the library: data sets were skipped when a component was missing. The most "
-          "frequent missing solvents were 2-propanol, 1-butanol, 1-propanol and acetonitrile; computing them "
-          "with ORCA would add data from about 20 more papers.",
-          "* Data per solute are uneven: betaine (241 points) and citric acid (115) come mostly from one or two "
-          "mixed-solvent studies, so they weigh heavily in the overall numbers.",
+          "* Coverage is limited by the library: data sets were skipped when a component was missing. Most "
+          "frequent missing components (number of papers): "
+          + ", ".join(f"{k} ({v})" for k, v in list(info.get("missing_components", {}).items())[:10]) + ".",
+          "* Data per solute are uneven ("
+          + ", ".join(f"{k} {v}" for k, v in df.solute.value_counts().items())
+          + " points); a few mixed-solvent studies contribute most points for betaine, malic and citric acid.",
           "",
           "## By solvent type\n", fmt_table(by_cat), "",
           "## By solute\n", fmt_table(by_sol), "",
@@ -235,6 +243,14 @@ def cmd_report():
           "",
           "![Parity](figures/parity.png)\n", "![Errors by type](figures/error_by_category.png)\n",
           "![Bias per solute](figures/bias_by_solute.png)\n",
+          "## Error per pure solvent (solute offsets removed)\n",
+          "Mean log₁₀ error per solvent after subtracting each solute's mean error, so that fusion-data "
+          "errors cancel: a positive value means the model makes this solvent look like a better solvent "
+          "than it is.\n",
+          "| solvent | solutes | points | mean centred error | factor |\n|---|---:|---:|---:|---:|",
+          *[f"| {r.Index} | {r.solutes} | {r.points} | {r.err:+.2f} | ×{10 ** r.err:.2f} |"
+            for r in per_solvent.itertuples()],
+          "",
           "## Largest systematic deviations (mean log₁₀ error per solute + solvent family)\n",
           "| solute | solvent | points | T (K) | bias | source |\n|---|---|---:|---|---:|---|"]
     md += [f"| {r.solute} | {r.family} | {r.points} | {r.T_min:.0f}–{r.T_max:.0f} | {r.bias:+.2f} | doi:{r.ref} |"
